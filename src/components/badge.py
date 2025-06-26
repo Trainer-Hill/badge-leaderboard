@@ -1,0 +1,35 @@
+import dash_bootstrap_components as dbc
+import th_helpers.components.deck_label
+
+from dash import html
+
+PREFIX = 'badge'
+trainer_id = f'{PREFIX}-trainer'
+pronoun_id = f'{PREFIX}-pronoun'
+deck_id = f'{PREFIX}-deck'
+store_id = f'{PREFIX}-store'
+date_id = f'{PREFIX}-date'
+
+
+def create_badge_component(data=None, index=None):
+    if data is None:
+        data = {}
+    background_color = data.get('color')
+    style = {'backgroundColor': background_color} if background_color else {}
+    component = dbc.Card([
+        html.H4(data.get('trainer', ''), id={'type': trainer_id, 'index': index}),
+        html.Div([
+            'earned ',
+            html.Span(data.get('pronouns', 'their'), id={'type': pronoun_id, 'index': index})],
+            className='mb-2'),
+        html.H4(
+            th_helpers.components.deck_label.format_label(data.get('deck')),
+            id={'type': deck_id, 'index': index},
+            className='d-flex justify-content-around'),
+        html.Div([
+            'badge at ',
+            html.Strong(data.get('store'), id={'type': store_id, 'index': index}),
+            ' on ',
+            html.Span(data.get('date'), id={'type': date_id, 'index': index})]),
+    ], class_name='text-center gym-badge', body=True, style=style)
+    return component
