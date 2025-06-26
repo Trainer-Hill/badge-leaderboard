@@ -3,7 +3,6 @@ import dash_auth
 import dash_bootstrap_components as dbc
 import datetime
 import random
-import th_helpers.components.deck_label
 import th_helpers.utils.pokemon
 
 from dash import html, dcc, Output, Input, State, clientside_callback, ClientsideFunction
@@ -34,7 +33,7 @@ deck_add = f'{deck_input}-add'
 store_input = f'{inputs_ids}-store'
 date_input = f'{inputs_ids}-date'
 deck_store = f'{inputs_ids}-deck-store'
-# TODO color and background
+# TODO color and background and tournament tier
 save = f'{PREFIX}-save'
 
 
@@ -43,10 +42,8 @@ def _create_pokemon_options():
     if not decks:
         return []
     random.shuffle(decks)
-    for d in decks:
-        d['icons'] = [th_helpers.components.deck_label.get_pokemon_icon(icon) for icon in d['icons']]
     options = [{
-        'label': th_helpers.components.deck_label.format_label(deck),
+        'label': components.deck_label.create_label(deck),
         'value': deck['id'],
         'search': deck['name'],
     } for deck in decks]

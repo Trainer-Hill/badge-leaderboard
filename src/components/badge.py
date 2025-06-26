@@ -16,8 +16,9 @@ def create_badge_component(data=None, index=None):
         data = {}
     background_color = data.get('color')
     style = {'backgroundColor': background_color} if background_color else {}
+    header = html.H4(data.get('trainer', ''), id={'type': trainer_id, 'index': index})
     component = dbc.Card([
-        html.H4(data.get('trainer', ''), id={'type': trainer_id, 'index': index}),
+        header,
         html.Div([
             'earned ',
             html.Span(data.get('pronouns', 'their'), id={'type': pronoun_id, 'index': index})],
