@@ -1,7 +1,7 @@
 import dash_bootstrap_components as dbc
-import th_helpers.components.deck_label
-
 from dash import html
+
+import components.deck_label
 
 PREFIX = 'badge'
 trainer_id = f'{PREFIX}-trainer'
@@ -23,7 +23,7 @@ def create_badge_component(data=None, index=None):
             html.Span(data.get('pronouns', 'their'), id={'type': pronoun_id, 'index': index})],
             className='mb-2'),
         html.H4(
-            th_helpers.components.deck_label.format_label(data.get('deck')),
+            components.deck_label.create_label(data.get('deck')),
             id={'type': deck_id, 'index': index},
             className='d-flex justify-content-around'),
         html.Div([

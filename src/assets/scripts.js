@@ -15,5 +15,22 @@ window.dash_clientside.clientside = {
       return [newOptions, input];
     }
     return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+  },
+
+  disableAddButton: function (trainer, pronoun, deck, store, date) {
+    if (!trainer || !pronoun || !deck || !store || !date) {
+      return true;
+    }
+    return false;
+  },
+
+  disableDeckAdd: function(name, icons, store) {
+    if (!name || !icons || icons.length === 0) {
+      return true;
+    }
+    if (name.toLowerCase().replace(/ /g, '') in store) {
+      return true;
+    }
+    return false;
   }
 }  

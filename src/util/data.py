@@ -1,14 +1,18 @@
 import json
+import os
 
 def read_data(filename):
     '''Read data from file with basic file modification caching'''
-    data = []    
+    data = []
+    if not os.path.isfile(filename):
+        return data
     with open(filename, 'r') as f:
         for line in f:
             try:
                 data.append(json.loads(line.strip()))
             except json.JSONDecodeError:
                 continue  # Skip invalid lines
+    data.reverse()
     return data
 
 

@@ -21,8 +21,7 @@ def create_component(data_entry):
 def layout():
     '''Main layout function that generates components from data'''
     # maybe we should be pulling this information from a different year - one file per year?
-    data = util.data.read_data('badge_dump.jsonl')
-    data.reverse()
+    data = util.data.read_data('badges.jsonl')
     return html.Div([
         html.H1('Home Page'),
         html.Div([components.badge.create_badge_component(badge, i) for i, badge in enumerate(data)])
