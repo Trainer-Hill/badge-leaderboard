@@ -65,7 +65,7 @@ TIER_WEIGHTS = {
 
 
 def _weighted_leaderboard(badges, key):
-    """Return sorted leaderboard accounting for tier weights."""
+    """Return sorted leaderboard accounting for tier weights, including counts and weights."""
     counts = Counter()
     weights = Counter()
     for b in badges:
@@ -77,19 +77,44 @@ def _weighted_leaderboard(badges, key):
         counts[value] += 1
         tier = (b.get('tier') or '').lower()
         weights[value] += TIER_WEIGHTS.get(tier, 0)
+
+    leaderboard = [
+        (value, counts[value], weights[value])
+        for value in counts
+    ]
+
     return sorted(
-        counts.items(),
-        key=lambda item: (item[1], weights[item[0]]),
+        leaderboard,
+        key=lambda item: (item[2], item[1]),
         reverse=True
     )
 
 
 def _leaderboard_table(title, data_counter):
-    rows = [html.Tr([html.Td(name), html.Td(count)]) for name, count in data_counter]
+    rows = [
+        html.Tr([
+            html.Td(name), html.Td(count, className='text-center'), html.Td(points, className='text-center')
+        ]) for name, count, points in data_counter]
     table = dbc.Table([
-        html.Thead(html.Tr([html.Th(title, colSpan=2)])),
+        html.Thead(html.Tr([html.Th(title), html.Td('Badges', className='w-0'), html.Td('Points', className='w-0')])),
         html.Tbody(rows)
     ], bordered=True, size='sm', class_name='mb-2')
+    return table
+
+
+def _counts_table(title, season_counts, quarter_counts):
+    keys = set(season_counts.keys()) | set(quarter_counts.keys())
+    rows = [
+        html.Tr([
+            html.Td(k),
+            html.Td(season_counts.get(k, 0), className='text-center'),
+            html.Td(quarter_counts.get(k, 0), className='text-center'),
+        ]) for k in sorted(keys)
+    ]
+    table = dbc.Table([
+        html.Thead(html.Tr([html.Th(title), html.Td('Season', className='w-0'), html.Td('Quarter', className='w-0')])),
+        html.Tbody(rows)
+    ], bordered=True, size='sm', class_name='mb-4')
     return table
 
 
@@ -113,12 +138,27 @@ def layout():
     deck_season = deck_season[:10]
     deck_quarter = deck_quarter[:10]
 
-    store_counts = _count_leaderboard(season_badges, 'store').most_common(5)
+    store_counts_season = _count_leaderboard(season_badges, 'store')
+    store_counts_quarter = _count_leaderboard(quarter_badges, 'store')
+    top_stores = store_counts_season.most_common(5)
+    top_store_names = [name for name, _ in top_stores]
+    store_season_top = {name: store_counts_season[name] for name in top_store_names}
+    store_quarter_top = {name: store_counts_quarter.get(name, 0) for name in top_store_names}
+
+    tier_season = _count_leaderboard(season_badges, 'tier')
+    tier_quarter = _count_leaderboard(quarter_badges, 'tier')
+
+    format_season = _count_leaderboard(season_badges, 'format')
+    format_quarter = _count_leaderboard(quarter_badges, 'format')
 
     recent_components = []
     for i, b in enumerate(badges[:10]):
         component = components.badge.create_badge_component(b, i)
         recent_components.append(component)
+
+    store_table = _counts_table('Store', store_season_top, store_quarter_top)
+    tier_table = _counts_table('Tier', tier_season, tier_quarter)
+    format_table = _counts_table('Format', format_season, format_quarter)
 
     return dbc.Container([
         dbc.Row([
@@ -133,9 +173,10 @@ def layout():
         ]),
         html.H2('Recent Badges'),
         dbc.Row([dbc.Col(rc, md=6) for rc in recent_components]),
-        html.H2('Top Stores'),
-        dbc.Table([
-            html.Thead(html.Tr([html.Th('Store'), html.Th('Badges')])),
-            html.Tbody([html.Tr([html.Td(name), html.Td(count)]) for name, count in store_counts])
-        ], bordered=True, size='sm', class_name='mb-4')
+        html.H2('Badge Stats'),
+        dbc.Row([
+            dbc.Col(store_table, lg=4, md=6),
+            dbc.Col(tier_table, lg=4, md=6),
+            dbc.Col(format_table, lg=4, md=6),
+        ])
     ], fluid=True)

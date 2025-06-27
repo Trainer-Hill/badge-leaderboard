@@ -115,7 +115,7 @@ def layout():
             'Save Badge'
         ], id=save, class_name='float-end'),
         dcc.Store(id=deck_store, data=decks),
-        html.Div(id='out')
+        html.Div(style={'marginBottom': '256px'})
     ])
     return component
 
