@@ -1,0 +1,25 @@
+.dash-dropdown .Select-control {
+    border-width: 1px !important;
+    border-color: rgba(100, 100, 100, .4) !important;
+}
+.dbc input::placeholder {
+  color: #aaa !important;
+}
+
+.gym-badge-bg {
+  position: absolute;
+  width: 150%;
+  height: 250%;
+  left: -40%;
+  top: -25%;
+  background-repeat: space;
+  background-size: 108px 72px;
+  background-position: center;
+  transform: rotate(-30deg);
+  z-index: 0;
+}
+.gym-badge {
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}

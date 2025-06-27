@@ -92,7 +92,6 @@ def layout():
         recent_components.append(component)
 
     return dbc.Container([
-        html.H1('Badge Leaderboard', className='mb-4'),
         dbc.Row([
             dbc.Col([
                 _leaderboard_table('Season Trainers', trainer_season),

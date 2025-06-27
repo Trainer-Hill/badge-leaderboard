@@ -7,7 +7,6 @@ import th_helpers.utils.pokemon
 
 from dash import html, dcc, Output, Input, State, clientside_callback, ClientsideFunction
 
-import components.badge
 import components.CustomRadioInputAIO
 import components.deck_label
 import components.layout_access_control
@@ -33,7 +32,10 @@ deck_add = f'{deck_input}-add'
 store_input = f'{inputs_ids}-store'
 date_input = f'{inputs_ids}-date'
 deck_store = f'{inputs_ids}-deck-store'
-# TODO color and background and tournament tier
+tier_input = f'{inputs_ids}-tier'
+format_input = f'{inputs_ids}-format'
+color_input = f'{inputs_ids}-color'
+background_input = f'{inputs_ids}-background'
 save = f'{PREFIX}-save'
 
 
@@ -65,7 +67,7 @@ def layout():
                 continue
             decks[badge['deck']['id']] = badge['deck']
 
-    inputs = html.Div([
+    inputs = dbc.Form([
         dbc.Label('Trainer', html_for=trainer_input),
         components.CustomRadioInputAIO.CustomRadioInputAIO(aio_id=trainer_input, options=list(trainers)),
 
@@ -81,17 +83,33 @@ def layout():
             dbc.Button(html.I(className='fas fa-plus'), id=deck_add, n_clicks=0, disabled=True)
         ]),
 
+        dbc.Label('Color', html_for=color_input),
+        dbc.Input(id=color_input, type='color', value='#ffffff'),
+
+        dbc.Label('Background', html_for=background_input),
+        dcc.Dropdown(id=background_input,
+                     options=['Grass', 'Fire', 'Water', 'Lightning',
+                              'Psychic', 'Fighting', 'Dark', 'Metal',
+                              'Dragon', 'Fairy', 'Colorless'],
+                     value=None),
+
         dbc.Label('Store', html_for=store_input),
         components.CustomRadioInputAIO.CustomRadioInputAIO(aio_id=store_input, options=list(stores)),
 
         dbc.Label('Date', html_for=date_input),
         html.Div(dcc.DatePickerSingle(id=date_input, date=datetime.date.today())),
+
+        dbc.Label('Tournament Tier', html_for=tier_input),
+        dcc.Dropdown(id=tier_input, options=['League Challenge', 'League Cup', 'Regionals', 'Internationals', 'Locals', 'Online'],
+                     value='Locals', clearable=False),
+
+        dbc.Label('Format', html_for=format_input),
+        dcc.Dropdown(id=format_input, options=['Standard', 'GLC', 'Expanded', 'Other'],
+                     value='Standard', clearable=False),
     ])
 
     component = html.Div([
-        'Admin',
         inputs,
-        components.badge.create_badge_component(index=badge_id),
         dbc.Button([
             html.I(className='fas fa-plus me-1'),
             'Save Badge'
@@ -134,7 +152,7 @@ def _add_deck(n_clicks, name, icons, store):
 
 
 @dash_auth.protected_callback(
-    Output(save, 'disabled', allow_duplicate=True),
+    Output('_pages_location', 'pathname', allow_duplicate=True),
     Input(save, 'n_clicks'),
     State(components.CustomRadioInputAIO.CustomRadioInputAIO.ids.dropdown(trainer_input), 'value'),
     State(pronoun_input, 'value'),
@@ -142,10 +160,14 @@ def _add_deck(n_clicks, name, icons, store):
     State(components.CustomRadioInputAIO.CustomRadioInputAIO.ids.dropdown(store_input), 'value'),
     State(date_input, 'date'),
     State(deck_store, 'data'),
+    State(color_input, 'value'),
+    State(background_input, 'value'),
+    State(tier_input, 'value'),
+    State(format_input, 'value'),
     groups=ROLES,
     prevent_initial_call=True
 )
-def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks):
+def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks, color, background, tier, format_type):
     """Append a badge to the badges file"""
     if not n_clicks:
         raise dash.exceptions.PreventUpdate
@@ -157,9 +179,13 @@ def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks):
         'deck': deck,
         'store': store,
         'date': date,
+        'color': color,
+        'background': background,
+        'tier': tier,
+        'format': format_type
     }
     util.data.append_datafile('badges.jsonl', badge)
-    return True
+    return '/'
 
 
 clientside_callback(
@@ -170,6 +196,10 @@ clientside_callback(
     Input(deck_input, 'value'),
     Input(components.CustomRadioInputAIO.CustomRadioInputAIO.ids.dropdown(store_input), 'value'),
     Input(date_input, 'date'),
+    Input(color_input, 'value'),
+    Input(background_input, 'value'),
+    Input(tier_input, 'value'),
+    Input(format_input, 'value'),
 )
 
 clientside_callback(

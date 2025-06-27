@@ -17,7 +17,11 @@ def create_badge_component(data=None, index=None):
     background_color = data.get('color')
     style = {'backgroundColor': background_color} if background_color else {}
     header = html.H4(data.get('trainer', ''), id={'type': trainer_id, 'index': index})
+    background = data.get('background')
     component = dbc.Card([
+        html.Div(style={
+            'backgroundImage': f"url('/assets/energy_types/{background.lower()}.svg')" if background else 'none'
+        }, className='gym-badge-bg'),
         header,
         html.Div([
             'earned ',

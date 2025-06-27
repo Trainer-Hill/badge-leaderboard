@@ -3,7 +3,7 @@ import dash_auth
 import dash_bootstrap_components as dbc
 
 # Grab logo
-THEME = None or dbc.themes.FLATLY
+THEME = None or dbc.themes.BOOTSTRAP
 TITLE = None or 'Badge Leaderboard'
 
 dbc_css = 'https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates@V1.0.2/dbc.min.css'
@@ -65,6 +65,16 @@ def serve_layout():
         [
             # TODO create navbar with logo
             # components.navbar.navbar(),
+            dbc.Navbar(dbc.Container([
+                dbc.NavbarBrand(
+                    TITLE,
+                    # html.Img(
+                    #     height='40px',
+                    #     id=image
+                    # ),
+                    href='/'
+                )
+            ])),
             dbc.Container([
                 dash.page_container,
             ], class_name='page-container my-1')

@@ -17,8 +17,8 @@ window.dash_clientside.clientside = {
     return [window.dash_clientside.no_update, window.dash_clientside.no_update];
   },
 
-  disableAddButton: function (trainer, pronoun, deck, store, date) {
-    if (!trainer || !pronoun || !deck || !store || !date) {
+  disableAddButton: function (trainer, pronoun, deck, store, date, color, background, tier, format) {
+    if (!trainer || !pronoun || !deck || !store || !date || (color === '#ffffff') || !background || !tier || !format) {
       return true;
     }
     return false;
