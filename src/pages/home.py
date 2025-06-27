@@ -42,7 +42,7 @@ def _parse_badges():
     return badges
 
 
-def _leaderboard(badges, key):
+def _count_leaderboard(badges, key):
     counter = Counter()
     for b in badges:
         value = b.get(key)
@@ -52,6 +52,36 @@ def _leaderboard(badges, key):
             value = value.get('name') or value.get('id')
         counter[value] += 1
     return counter
+
+
+TIER_WEIGHTS = {
+    'locals': 1,
+    'online': 1,
+    'league challenge': 2,
+    'league cup': 3,
+    'regionals': 5,
+    'internationals': 6
+}
+
+
+def _weighted_leaderboard(badges, key):
+    """Return sorted leaderboard accounting for tier weights."""
+    counts = Counter()
+    weights = Counter()
+    for b in badges:
+        value = b.get(key)
+        if not value:
+            continue
+        if isinstance(value, dict):
+            value = value.get('name') or value.get('id')
+        counts[value] += 1
+        tier = (b.get('tier') or '').lower()
+        weights[value] += TIER_WEIGHTS.get(tier, 0)
+    return sorted(
+        counts.items(),
+        key=lambda item: (item[1], weights[item[0]]),
+        reverse=True
+    )
 
 
 def _leaderboard_table(title, data_counter):
@@ -73,18 +103,17 @@ def layout():
     season_badges = [b for b in badges if b.get('date') and b['date'] >= season_start]
     quarter_badges = [b for b in badges if b.get('date') and b['date'] >= quarter_start]
 
-    trainer_season = _leaderboard(season_badges, 'trainer')
-    trainer_quarter = _leaderboard(quarter_badges, 'trainer')
-    deck_season = _leaderboard(season_badges, 'deck')
-    deck_quarter = _leaderboard(quarter_badges, 'deck')
+    trainer_season = _weighted_leaderboard(season_badges, 'trainer')
+    trainer_quarter = _weighted_leaderboard(quarter_badges, 'trainer')
+    deck_season = _weighted_leaderboard(season_badges, 'deck')
+    deck_quarter = _weighted_leaderboard(quarter_badges, 'deck')
 
-    # TODO how do we factor in tie breakers?
-    trainer_season = trainer_season.most_common(10)
-    trainer_quarter = trainer_quarter.most_common(10)
-    deck_season = deck_season.most_common(10)
-    deck_quarter = deck_quarter.most_common(10)
+    trainer_season = trainer_season[:10]
+    trainer_quarter = trainer_quarter[:10]
+    deck_season = deck_season[:10]
+    deck_quarter = deck_quarter[:10]
 
-    store_counts = _leaderboard(season_badges, 'store').most_common(5)
+    store_counts = _count_leaderboard(season_badges, 'store').most_common(5)
 
     recent_components = []
     for i, b in enumerate(badges[:10]):
