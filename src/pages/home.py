@@ -32,6 +32,26 @@ def _quarter_start(date: datetime.date) -> datetime.date:
     return datetime.date(y, 4, 1)
 
 
+def _next_quarter_start(date: datetime.date) -> datetime.date:
+    """Return the start date of the following quarter."""
+    qs = _quarter_start(date)
+    m = qs.month
+    y = qs.year
+    if m == 7:
+        return datetime.date(y, 10, 1)
+    if m == 10:
+        return datetime.date(y + 1, 1, 1)
+    if m == 1:
+        return datetime.date(y, 4, 1)
+    return datetime.date(y, 7, 1)
+
+
+def _quarter_label(start: datetime.date) -> str:
+    """Return a human readable label for a quarter."""
+    end = _next_quarter_start(start) - datetime.timedelta(days=1)
+    return f"{start.strftime('%b')} - {end.strftime('%b %Y')}"
+
+
 def _parse_badges():
     badges = util.data.read_data('badges.jsonl')
     for b in badges:
@@ -118,25 +138,28 @@ def _counts_table(title, season_counts, quarter_counts):
     return table
 
 
-def layout():
-    badges = _parse_badges()
-
+def _quarter_row(badges, quarter_start: datetime.date):
+    """Create leaderboard row for a given quarter."""
+    quarter_end = _next_quarter_start(quarter_start)
     today = datetime.date.today()
-    season_start = _season_start(today)
-    quarter_start = _quarter_start(today)
+    end_date = min(quarter_end, today + datetime.timedelta(days=1))
 
-    season_badges = [b for b in badges if b.get('date') and b['date'] >= season_start]
-    quarter_badges = [b for b in badges if b.get('date') and b['date'] >= quarter_start]
+    season_start = _season_start(quarter_start)
 
-    trainer_season = _weighted_leaderboard(season_badges, 'trainer')
-    trainer_quarter = _weighted_leaderboard(quarter_badges, 'trainer')
-    deck_season = _weighted_leaderboard(season_badges, 'deck')
-    deck_quarter = _weighted_leaderboard(quarter_badges, 'deck')
+    season_badges = [
+        b for b in badges if b.get('date') and season_start <= b['date'] < end_date
+    ]
+    quarter_badges = [
+        b for b in badges if b.get('date') and quarter_start <= b['date'] < end_date
+    ]
 
-    trainer_season = trainer_season[:10]
-    trainer_quarter = trainer_quarter[:10]
-    deck_season = deck_season[:10]
-    deck_quarter = deck_quarter[:10]
+    trainer_season = _weighted_leaderboard(season_badges, 'trainer')[:10]
+    trainer_quarter = _weighted_leaderboard(quarter_badges, 'trainer')[:10]
+    deck_season = _weighted_leaderboard(season_badges, 'deck')[:10]
+    deck_quarter = _weighted_leaderboard(quarter_badges, 'deck')[:10]
+
+    season = season_start.year + 1
+    quarter_label = _quarter_label(quarter_start)
 
     store_counts_season = _count_leaderboard(season_badges, 'store')
     store_counts_quarter = _count_leaderboard(quarter_badges, 'store')
@@ -151,38 +174,60 @@ def layout():
     format_season = _count_leaderboard(season_badges, 'format')
     format_quarter = _count_leaderboard(quarter_badges, 'format')
 
+    store_table = _counts_table('Store', store_season_top, store_quarter_top)
+    tier_table = _counts_table('Tier', tier_season, tier_quarter)
+    format_table = _counts_table('Format', format_season, format_quarter)
+
+    leaderboard = dbc.Row([
+        dbc.Col([
+            html.H4('Trainers'),
+            _leaderboard_table(f'{season} Season', trainer_season),
+            _leaderboard_table(quarter_label, trainer_quarter),
+        ], md=6),
+        dbc.Col([
+            html.H4('Decks'),
+            _leaderboard_table(f'{season} Season', deck_season),
+            _leaderboard_table(quarter_label, deck_quarter),
+        ], md=6)
+    ])
+
+    stats = dbc.Row([
+        dbc.Col(store_table, lg=4, md=6),
+        dbc.Col(tier_table, lg=4, md=6),
+        dbc.Col(format_table, lg=4, md=6),
+    ])
+
+    return html.Div([leaderboard, html.H4('Badge Stats'), stats])
+
+
+def layout():
+    badges = _parse_badges()
+
+    today = datetime.date.today()
+
     recent_components = []
     for i, b in enumerate(badges[:10]):
         component = components.badge.create_badge_component(b, i)
         recent_components.append(component)
 
-    store_table = _counts_table('Store', store_season_top, store_quarter_top)
-    tier_table = _counts_table('Tier', tier_season, tier_quarter)
-    format_table = _counts_table('Format', format_season, format_quarter)
+    quarter_starts = sorted({
+        _quarter_start(b['date'])
+        for b in badges if b.get('date')
+    }, reverse=True)
 
-    season = season_start.year + 1
-    quarter_end = quarter_start + datetime.timedelta(days=63)
-    quarter = f'{quarter_start.strftime("%b")} - {quarter_end.strftime("%b")}'
+    tabs = [
+        dbc.Tab(_quarter_row(badges, qs), label=_quarter_label(qs))
+        for qs in quarter_starts
+    ]
+
+    badge_cols = [
+        dbc.Col(rc, xs=12, md=6, xl=4)
+        for rc in recent_components
+    ]
 
     return dbc.Container([
-        dbc.Row([
-            dbc.Col([
-                html.H4('Trainers'),
-                _leaderboard_table(f'{season} Season', trainer_season),
-                _leaderboard_table(quarter, trainer_quarter),
-            ], md=6),
-            dbc.Col([
-                html.H4('Decks'),
-                _leaderboard_table(f'{season} Season', deck_season),
-                _leaderboard_table(quarter, deck_quarter),
-            ], md=6)
-        ]),
         html.H2('Recent Badges'),
-        dbc.Row([dbc.Col(rc, md=6) for rc in recent_components]),
-        html.H2('Badge Stats'),
-        dbc.Row([
-            dbc.Col(store_table, lg=4, md=6),
-            dbc.Col(tier_table, lg=4, md=6),
-            dbc.Col(format_table, lg=4, md=6),
-        ])
+        dbc.Row(badge_cols, class_name='overflow-auto flex-nowrap mb-3 pb-2'),
+        html.H2('Leaderboards'),
+        dbc.Tabs(tabs),
     ], fluid=True)
