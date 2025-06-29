@@ -85,7 +85,7 @@ def _weighted_leaderboard(badges, key):
 
     return sorted(
         leaderboard,
-        key=lambda item: (item[2], item[1]),
+        key=lambda item: (item[1], item[2]),
         reverse=True
     )
 
@@ -160,15 +160,21 @@ def layout():
     tier_table = _counts_table('Tier', tier_season, tier_quarter)
     format_table = _counts_table('Format', format_season, format_quarter)
 
+    season = season_start.year + 1
+    quarter_end = quarter_start + datetime.timedelta(days=63)
+    quarter = f'{quarter_start.strftime("%b")} - {quarter_end.strftime("%b")}'
+
     return dbc.Container([
         dbc.Row([
             dbc.Col([
-                _leaderboard_table('Season Trainers', trainer_season),
-                _leaderboard_table('Current Quarter Trainers', trainer_quarter),
+                html.H4('Trainers'),
+                _leaderboard_table(f'{season} Season', trainer_season),
+                _leaderboard_table(quarter, trainer_quarter),
             ], md=6),
             dbc.Col([
-                _leaderboard_table('Season Decks', deck_season),
-                _leaderboard_table('Current Quarter Decks', deck_quarter),
+                html.H4('Decks'),
+                _leaderboard_table(f'{season} Season', deck_season),
+                _leaderboard_table(quarter, deck_quarter),
             ], md=6)
         ]),
         html.H2('Recent Badges'),

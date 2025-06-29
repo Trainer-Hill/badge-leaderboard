@@ -41,6 +41,13 @@ def get_user_groups(user):
     return []
 
 
+assets = [f'/assets/energy_types/{t.lower()}.svg' for t in [
+    'Grass', 'Fire', 'Water', 'Lightning',
+    'Psychic', 'Fighting', 'Dark', 'Metal',
+    'Dragon', 'Fairy', 'Colorless']
+]
+
+
 dash_auth.BasicAuth(
     app=app,
     public_routes=[
@@ -53,7 +60,7 @@ dash_auth.BasicAuth(
         '/_dash-component-suites/*',  # Wildcard for Dash component resources (JS/CSS)
         '/_config',  # Dash config endpoint (optional)
         '/_reload-hash',  # Hot-reload in debug mode (optional)
-    ],
+    ] + assets,
     auth_func=check_user,
     user_groups=get_user_groups,
     secret_key='TODO GENERATE A SECURE KEY HERE BOI',
