@@ -5,6 +5,7 @@ from collections import Counter, defaultdict
 from dash import html, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
 
 import components.badge
+import components.deck_label
 import util.data
 
 dash.register_page(
@@ -60,6 +61,18 @@ def _parse_badges():
         except Exception:
             b['date'] = None
     return badges
+
+
+def _create_deck_map(badges):
+    """Return mapping of deck name to full deck data."""
+    deck_map = {}
+    for b in badges:
+        deck = b.get('deck')
+        if isinstance(deck, dict):
+            name = deck.get('name')
+            if name and name not in deck_map:
+                deck_map[name] = deck
+    return deck_map
 
 
 def _count_leaderboard(badges, key):
@@ -127,31 +140,39 @@ def _weighted_leaderboard(badges, key):
     )
 
 
-def _format_detail_list(details):
+def _format_detail_list(details, use_deck_label=False, deck_map=None):
     items = []
     for name, tiers in details.items():
         badges = [
             dbc.Badge(f"{t} {c}x" if c > 1 else t, class_name='ms-1')
             for t, c in tiers.items()
         ]
-        label = name
-        items.append(html.Li([label, *badges]))
-    print(items)
-    return html.Ul(items, className='mb-0')
+        if use_deck_label:
+            deck = deck_map.get(name, {'name': name}) if deck_map else {'name': name}
+            label = components.deck_label.create_label(deck)
+        else:
+            label = name
+        items.append(html.Li(html.Div([html.Span('-', className='mx-1'), label, *badges], className='d-flex align-items-center')))
+    return html.Ul(items, className='mb-0 list-unstyled')
 
 
-def _leaderboard_table(title, data_counter, summaries, row_type):
+def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False, deck_map=None):
     rows = []
     for i, (name, count, points) in enumerate(data_counter):
         idx = f"{row_type}-{title}-{i}-{name}".lower().replace(' ', '')
         toggle_id = {'type': f'lb-toggle', 'index': idx}
         collapse_id = {'type': f'lb-collapse', 'index': idx}
+        if deck_rows:
+            deck = deck_map.get(name, {'name': name}) if deck_map else {'name': name}
+            label = components.deck_label.create_label(deck)
+        else:
+            label = name
         rows.append(html.Tr([
-            html.Td(html.A(name, id=toggle_id, n_clicks=0)),
-            html.Td(count, className='text-center'),
-            html.Td(points, className='text-center'),
+            html.Td(html.A(label, id=toggle_id, n_clicks=0)),
+            html.Td(count, className='text-center align-middle'),
+            html.Td(points, className='text-center align-middle'),
         ]))
-        detail_component = _format_detail_list(summaries.get(name, {}))
+        detail_component = _format_detail_list(summaries.get(name, {}), use_deck_label=not deck_rows, deck_map=deck_map)
         rows.append(html.Tr([
             html.Td(
                 dbc.Collapse(detail_component, id=collapse_id, is_open=False),
@@ -181,7 +202,7 @@ def _counts_table(title, season_counts, quarter_counts):
     return table
 
 
-def _quarter_row(badges, quarter_start: datetime.date):
+def _quarter_row(badges, quarter_start: datetime.date, deck_map=None):
     """Create leaderboard row for a given quarter."""
     quarter_end = _next_quarter_start(quarter_start)
     today = datetime.date.today()
@@ -229,13 +250,13 @@ def _quarter_row(badges, quarter_start: datetime.date):
     leaderboard = dbc.Row([
         dbc.Col([
             html.H4('Trainers'),
-            _leaderboard_table(f'{season} Season', trainer_season, trainer_season_summary, f'trainer-season-{quarter_label}'),
-            _leaderboard_table(quarter_label, trainer_quarter, trainer_quarter_summary, 'trainer-quart'),
+            _leaderboard_table(f'{season} Season', trainer_season, trainer_season_summary, f'trainer-season-{quarter_label}', deck_map=deck_map),
+            _leaderboard_table(quarter_label, trainer_quarter, trainer_quarter_summary, 'trainer-quart', deck_map=deck_map),
         ], md=6),
         dbc.Col([
             html.H4('Decks'),
-            _leaderboard_table(f'{season} Season', deck_season, deck_season_summary, f'deck-season-{quarter_label}'),
-            _leaderboard_table(quarter_label, deck_quarter, deck_quarter_summary, 'deck-quart'),
+            _leaderboard_table(f'{season} Season', deck_season, deck_season_summary, f'deck-season-{quarter_label}', deck_rows=True, deck_map=deck_map),
+            _leaderboard_table(quarter_label, deck_quarter, deck_quarter_summary, 'deck-quart', deck_rows=True, deck_map=deck_map),
         ], md=6)
     ])
 
@@ -251,8 +272,6 @@ def _quarter_row(badges, quarter_start: datetime.date):
 def layout():
     badges = _parse_badges()
 
-    today = datetime.date.today()
-
     recent_components = []
     for i, b in enumerate(badges[:10]):
         component = components.badge.create_badge_component(b, i)
@@ -263,8 +282,10 @@ def layout():
         for b in badges if b.get('date')
     }, reverse=True)
 
+    deck_map = _create_deck_map(badges)
+
     tabs = [
-        dbc.Tab(_quarter_row(badges, qs), label=_quarter_label(qs))
+        dbc.Tab(_quarter_row(badges, qs, deck_map=deck_map), label=_quarter_label(qs))
         for qs in quarter_starts
     ]
 
