@@ -1,8 +1,8 @@
 import dash
 import dash_bootstrap_components as dbc
 import datetime
-from collections import Counter
-from dash import html
+from collections import Counter, defaultdict
+from dash import html, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
 
 import components.badge
 import util.data
@@ -74,6 +74,23 @@ def _count_leaderboard(badges, key):
     return counter
 
 
+def _summarize_badges(badges, primary_key, secondary_key):
+    """Return mapping of primary -> secondary -> tier counts."""
+    summary = defaultdict(lambda: defaultdict(Counter))
+    for b in badges:
+        primary = b.get(primary_key)
+        secondary = b.get(secondary_key)
+        if not primary or not secondary:
+            continue
+        if isinstance(primary, dict):
+            primary = primary.get('name') or primary.get('id')
+        if isinstance(secondary, dict):
+            secondary = secondary.get('name') or secondary.get('id')
+        tier = (b.get('tier') or '').title()
+        summary[primary][secondary][tier] += 1
+    return summary
+
+
 TIER_WEIGHTS = {
     'locals': 1,
     'online': 1,
@@ -110,11 +127,37 @@ def _weighted_leaderboard(badges, key):
     )
 
 
-def _leaderboard_table(title, data_counter):
-    rows = [
-        html.Tr([
-            html.Td(name), html.Td(count, className='text-center'), html.Td(points, className='text-center')
-        ]) for name, count, points in data_counter]
+def _format_detail_list(details):
+    items = []
+    for name, tiers in details.items():
+        badges = [
+            dbc.Badge(f"{t} {c}x" if c > 1 else t, class_name='ms-1')
+            for t, c in tiers.items()
+        ]
+        label = name
+        items.append(html.Li([label, *badges]))
+    print(items)
+    return html.Ul(items, className='mb-0')
+
+
+def _leaderboard_table(title, data_counter, summaries, row_type):
+    rows = []
+    for i, (name, count, points) in enumerate(data_counter):
+        idx = f"{row_type}-{title}-{i}-{name}".lower().replace(' ', '')
+        toggle_id = {'type': f'lb-toggle', 'index': idx}
+        collapse_id = {'type': f'lb-collapse', 'index': idx}
+        rows.append(html.Tr([
+            html.Td(html.A(name, id=toggle_id, n_clicks=0)),
+            html.Td(count, className='text-center'),
+            html.Td(points, className='text-center'),
+        ]))
+        detail_component = _format_detail_list(summaries.get(name, {}))
+        rows.append(html.Tr([
+            html.Td(
+                dbc.Collapse(detail_component, id=collapse_id, is_open=False),
+                colSpan=3, className='p-0'
+            )
+        ]))
     table = dbc.Table([
         html.Thead(html.Tr([html.Th(title), html.Td('Badges', className='w-0'), html.Td('Points', className='w-0')])),
         html.Tbody(rows)
@@ -158,6 +201,11 @@ def _quarter_row(badges, quarter_start: datetime.date):
     deck_season = _weighted_leaderboard(season_badges, 'deck')[:10]
     deck_quarter = _weighted_leaderboard(quarter_badges, 'deck')[:10]
 
+    trainer_season_summary = _summarize_badges(season_badges, 'trainer', 'deck')
+    trainer_quarter_summary = _summarize_badges(quarter_badges, 'trainer', 'deck')
+    deck_season_summary = _summarize_badges(season_badges, 'deck', 'trainer')
+    deck_quarter_summary = _summarize_badges(quarter_badges, 'deck', 'trainer')
+
     season = season_start.year + 1
     quarter_label = _quarter_label(quarter_start)
 
@@ -181,13 +229,13 @@ def _quarter_row(badges, quarter_start: datetime.date):
     leaderboard = dbc.Row([
         dbc.Col([
             html.H4('Trainers'),
-            _leaderboard_table(f'{season} Season', trainer_season),
-            _leaderboard_table(quarter_label, trainer_quarter),
+            _leaderboard_table(f'{season} Season', trainer_season, trainer_season_summary, f'trainer-season-{quarter_label}'),
+            _leaderboard_table(quarter_label, trainer_quarter, trainer_quarter_summary, 'trainer-quart'),
         ], md=6),
         dbc.Col([
             html.H4('Decks'),
-            _leaderboard_table(f'{season} Season', deck_season),
-            _leaderboard_table(quarter_label, deck_quarter),
+            _leaderboard_table(f'{season} Season', deck_season, deck_season_summary, f'deck-season-{quarter_label}'),
+            _leaderboard_table(quarter_label, deck_quarter, deck_quarter_summary, 'deck-quart'),
         ], md=6)
     ])
 
@@ -231,3 +279,11 @@ def layout():
         html.H2('Leaderboards'),
         dbc.Tabs(tabs),
     ], fluid=True)
+
+
+clientside_callback(
+    ClientsideFunction('clientside', 'toggleWithButton'),
+    Output({'type': 'lb-collapse', 'index': MATCH}, 'is_open'),
+    Input({'type': 'lb-toggle', 'index': MATCH}, 'n_clicks'),
+    State({'type': 'lb-collapse', 'index': MATCH}, 'is_open'),
+)

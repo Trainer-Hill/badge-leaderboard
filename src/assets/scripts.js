@@ -3,6 +3,14 @@ if (!window.dash_clientside) {
 }
 
 window.dash_clientside.clientside = {
+  toggleWithButton: function (clicks, isOpen) {
+    console.log(clicks, isOpen);
+    if (clicks > 0) {
+      return !isOpen;
+    }
+    return isOpen;
+  },
+
   customRadioEnableAdd: function (input, options) {
     if (input === undefined) { console.log('returning'); return true; }
     if (input.length === 0) { return true; }
