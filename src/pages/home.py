@@ -152,7 +152,7 @@ def _format_detail_list(details, use_deck_label=False, deck_map=None):
             label = components.deck_label.create_label(deck)
         else:
             label = name
-        items.append(html.Li(html.Div([html.Span('-', className='mx-1'), label, *badges], className='d-flex align-items-center')))
+        items.append(html.Li(html.Div([html.Span('-', className='mx-1'), label, *badges], className='d-flex align-items-center mb-1')))
     return html.Ul(items, className='mb-0 list-unstyled')
 
 
@@ -168,7 +168,7 @@ def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False
         else:
             label = name
         rows.append(html.Tr([
-            html.Td(html.A(label, id=toggle_id, n_clicks=0)),
+            html.Td(html.A(label, id=toggle_id, n_clicks=0, className='align-middle')),
             html.Td(count, className='text-center align-middle'),
             html.Td(points, className='text-center align-middle'),
         ]))
@@ -178,11 +178,11 @@ def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False
                 dbc.Collapse(detail_component, id=collapse_id, is_open=False),
                 colSpan=3, className='p-0'
             )
-        ]))
+        ], className='tr-collapse'))
     table = dbc.Table([
         html.Thead(html.Tr([html.Th(title), html.Td('Badges', className='w-0'), html.Td('Points', className='w-0')])),
         html.Tbody(rows)
-    ], bordered=True, size='sm', class_name='mb-2')
+    ], bordered=True, size='sm', class_name='mb-2 leaderboard')
     return table
 
 

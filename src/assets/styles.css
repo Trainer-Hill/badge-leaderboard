@@ -27,3 +27,11 @@
 .w-0 {
   width: 0 !important;
 }
+
+.leaderboard tr {
+  height: 42px;
+}
+
+.tr-collapse {
+  height: 0 !important;
+}
