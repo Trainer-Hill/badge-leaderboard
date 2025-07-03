@@ -1,6 +1,8 @@
 import dash_bootstrap_components as dbc
 from dash import html
 
+import th_helpers.utils.colors
+
 import components.deck_label
 
 PREFIX = 'badge'
@@ -15,7 +17,7 @@ def create_badge_component(data=None, index=None):
     if data is None:
         data = {}
     background_color = data.get('color')
-    style = {'backgroundColor': background_color} if background_color else {}
+    style = {'backgroundColor': background_color, 'color': th_helpers.utils.colors.text_color_for_background(background_color)} if background_color else {}
     header = html.H4(data.get('trainer', ''), id={'type': trainer_id, 'index': index})
     background = data.get('background')
     tier = data.get('tier')

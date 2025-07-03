@@ -81,7 +81,7 @@ def serve_layout():
                     # ),
                     href='/'
                 )
-            ])),
+            ]), color='dark', dark=True),
             dbc.Container([
                 dash.page_container,
             ], class_name='page-container my-1')

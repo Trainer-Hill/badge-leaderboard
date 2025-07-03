@@ -49,8 +49,9 @@ def _next_quarter_start(date: datetime.date) -> datetime.date:
 
 def _quarter_label(start: datetime.date) -> str:
     """Return a human readable label for a quarter."""
+    season = _season_start(start)
     end = _next_quarter_start(start) - datetime.timedelta(days=1)
-    return f"{start.strftime('%b')} - {end.strftime('%b %Y')}"
+    return f"s{season.year + 1 - 2000} {start.strftime('%b')} - {end.strftime('%b')}"
 
 
 def _parse_badges():
@@ -156,6 +157,11 @@ def _format_detail_list(details, use_deck_label=False, deck_map=None):
     return html.Ul(items, className='mb-0 list-unstyled')
 
 
+_RANK_ICONS = {
+    1: 'crown', 2: 'trophy', 3: 'medal'
+}
+
+
 def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False, deck_map=None):
     rows = []
     for i, (name, count, points) in enumerate(data_counter):
@@ -168,7 +174,8 @@ def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False
         else:
             label = name
         rows.append(html.Tr([
-            html.Td(html.A(label, id=toggle_id, n_clicks=0, className='align-middle')),
+            html.Td(html.I(className=f'fas fa-{_RANK_ICONS[i+1]}') if i+1 in _RANK_ICONS else i+1, className='text-center align-middle w-0'),
+            html.Td(html.A(label, id=toggle_id, n_clicks=0), className='align-middle'),
             html.Td(count, className='text-center align-middle'),
             html.Td(points, className='text-center align-middle'),
         ]))
@@ -176,11 +183,11 @@ def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False
         rows.append(html.Tr([
             html.Td(
                 dbc.Collapse(detail_component, id=collapse_id, is_open=False),
-                colSpan=3, className='p-0'
+                colSpan=4, className='p-0'
             )
         ], className='tr-collapse'))
     table = dbc.Table([
-        html.Thead(html.Tr([html.Th(title), html.Td('Badges', className='w-0'), html.Td('Points', className='w-0')])),
+        html.Thead(html.Tr([html.Th(title, colSpan=2), html.Td('Badges', className='w-0'), html.Td('Points', className='w-0')])),
         html.Tbody(rows)
     ], bordered=True, size='sm', class_name='mb-2 leaderboard')
     return table
@@ -285,20 +292,25 @@ def layout():
     deck_map = _create_deck_map(badges)
 
     tabs = [
-        dbc.Tab(_quarter_row(badges, qs, deck_map=deck_map), label=_quarter_label(qs))
+        dbc.Tab(_quarter_row(badges, qs, deck_map=deck_map), label=_quarter_label(qs), active_tab_style={'fontWeight': 'bold'})
         for qs in quarter_starts
     ]
 
     badge_cols = [
-        dbc.Col(rc, xs=12, md=6, xl=4)
+        dbc.Col(rc, xs=12, md=6, xl=4, class_name='bg-transparent')
         for rc in recent_components
     ]
 
     return dbc.Container([
+        dbc.Alert(
+            'Welcome to the Badge Leaderboard! Track recent badges and see who is on top.',
+            color='info',
+            class_name='mb-1'
+        ),
         html.H2('Recent Badges'),
-        dbc.Row(badge_cols, class_name='overflow-auto flex-nowrap mb-3 pb-2'),
+        dbc.Row(badge_cols, class_name='overflow-auto flex-nowrap mb-2 pb-2'),
         html.H2('Leaderboards'),
-        dbc.Tabs(tabs),
+        dbc.Tabs(tabs, class_name='mb-1'),
     ], fluid=True)
 
 
