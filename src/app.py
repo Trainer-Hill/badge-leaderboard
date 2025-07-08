@@ -1,6 +1,7 @@
 import dash
 import dash_auth
 import dash_bootstrap_components as dbc
+import os
 
 # Grab logo
 THEME = None or dbc.themes.BOOTSTRAP
@@ -13,7 +14,10 @@ app = dash.Dash(
     external_stylesheets=[
         dbc_css,
         THEME,
-        'https://use.fontawesome.com/releases/v6.7.2/css/all.css',
+        'https://use.fontawesome.com/releases/v6.7.2/css/all.css'
+    ],
+    external_scripts=[
+        {'src': 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'}
     ],
     meta_tags=[
         {'name': 'viewport', 'content': 'width=device-width, initial-scale=1'}
@@ -23,20 +27,14 @@ app = dash.Dash(
 )
 
 
-# TODO figure out the proper way to do this
 def check_user(username, password):
-    if username == "user1" and password == "password":
-        return True
-    if username == "user2" and password == "admin":
+    if username == os.getenv('TH_BL_USER') and password == os.getenv('TH_BL_PASSWORD'):
         return True
     return False
 
 
-# TODO figure out the proper way to do this
 def get_user_groups(user):
-    if user == "user1":
-        return ["group1", "group2"]
-    elif user == "user2":
+    if user == os.getenv('TH_BL_USER'):
         return ["admin"]
     return []
 

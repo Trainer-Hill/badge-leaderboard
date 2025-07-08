@@ -22,6 +22,8 @@ def create_badge_component(data=None, index=None):
     background = data.get('background')
     tier = data.get('tier')
     tier_comp = dbc.Badge(tier, class_name='me-1') if tier else None
+    format = data.get('format')
+    format_comp = dbc.Badge(format) if format else None
     component = dbc.Card([
         html.Div(style={
             'backgroundImage': f"url('/assets/energy_types/{background.lower()}.svg')" if background else 'none'
@@ -36,11 +38,13 @@ def create_badge_component(data=None, index=None):
             id={'type': deck_id, 'index': index},
             className='d-flex justify-content-around'),
         html.Div([
-            tier_comp,
             'badge at ',
             html.Strong(data.get('store'), id={'type': store_id, 'index': index})]),
         html.Div([
             ' on ',
             html.Span(data.get('date'), id={'type': date_id, 'index': index})]),
-    ], class_name='text-center gym-badge', body=True, style=style)
+        html.Div([
+            tier_comp,
+            format_comp])
+    ], class_name='text-center gym-badge', body=True, style=style, id=f'recent-{index}')
     return component

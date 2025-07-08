@@ -58,10 +58,12 @@ def layout():
 
     trainers = set()
     stores = set()
+    formats = set()
     decks = {}
     for badge in data:
         if badge.get('trainer'): trainers.add(badge.get('trainer'))
         if badge.get('store'): stores.add(badge.get('store'))
+        if badge.get('format'): formats.add(badge.get('format'))
         if badge.get('deck'):
             if badge['deck']['id'] in decks:
                 continue
@@ -104,8 +106,7 @@ def layout():
                      value='Locals', clearable=False),
 
         dbc.Label('Format', html_for=format_input),
-        dcc.Dropdown(id=format_input, options=['Standard', 'GLC', 'Expanded', 'Other'],
-                     value='Standard', clearable=False),
+        components.CustomRadioInputAIO.CustomRadioInputAIO(aio_id=format_input, options=list(formats)),
     ])
 
     component = html.Div([
@@ -163,7 +164,7 @@ def _add_deck(n_clicks, name, icons, store):
     State(color_input, 'value'),
     State(background_input, 'value'),
     State(tier_input, 'value'),
-    State(format_input, 'value'),
+    State(components.CustomRadioInputAIO.CustomRadioInputAIO.ids.dropdown(format_input), 'value'),
     groups=ROLES,
     prevent_initial_call=True
 )
@@ -199,7 +200,7 @@ clientside_callback(
     Input(color_input, 'value'),
     Input(background_input, 'value'),
     Input(tier_input, 'value'),
-    Input(format_input, 'value'),
+    Input(components.CustomRadioInputAIO.CustomRadioInputAIO.ids.dropdown(format_input), 'value'),
 )
 
 clientside_callback(

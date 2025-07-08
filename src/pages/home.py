@@ -4,6 +4,7 @@ import datetime
 from collections import Counter, defaultdict
 from dash import html, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
 
+import th_helpers.components.help_icon
 import components.badge
 import components.deck_label
 import util.data
@@ -111,8 +112,9 @@ TIER_WEIGHTS = {
     'league challenge': 2,
     'league cup': 3,
     'regionals': 5,
-    'internationals': 6
+    'internationals': 5
 }
+TIER_WEIGHT_HELP = [html.Div(f'{k.title()} - {v}pt{"s" if v > 1 else ""}') for k, v in TIER_WEIGHTS.items()]
 
 
 def _weighted_leaderboard(badges, key):
@@ -174,7 +176,7 @@ def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False
         else:
             label = name
         rows.append(html.Tr([
-            html.Td(html.I(className=f'fas fa-{_RANK_ICONS[i+1]}') if i+1 in _RANK_ICONS else i+1, className='text-center align-middle w-0'),
+            html.Td(html.I(className=f'fas fa-{_RANK_ICONS[i+1]}') if i+1 in _RANK_ICONS else i+1, className='text-center align-middle w-0 text-dark'),
             html.Td(html.A(label, id=toggle_id, n_clicks=0), className='align-middle'),
             html.Td(count, className='text-center align-middle'),
             html.Td(points, className='text-center align-middle'),
@@ -273,7 +275,12 @@ def _quarter_row(badges, quarter_start: datetime.date, deck_map=None):
         dbc.Col(format_table, lg=4, md=6),
     ])
 
-    return html.Div([leaderboard, html.H4('Badge Stats'), stats])
+    return html.Div([
+        leaderboard,
+        html.H4('Badge Stats'),
+        html.P('Additional information about the acquired badges.'),
+        stats
+    ])
 
 
 def layout():
@@ -298,18 +305,27 @@ def layout():
 
     badge_cols = [
         dbc.Col(rc, xs=12, md=6, xl=4, class_name='bg-transparent')
-        for rc in recent_components
+        for i, rc in enumerate(recent_components)
     ]
 
     return dbc.Container([
         dbc.Alert(
-            'Welcome to the Badge Leaderboard! Track recent badges and see who is on top.',
+            'Welcome to the Badge Leaderboard!',
             color='info',
             class_name='mb-1'
         ),
-        html.H2('Recent Badges'),
+        html.Div([
+            html.H2('Recent Badges', className='d-flex mb-0 me-1'),
+            dbc.Button(html.I(className='fas fa-download'), title='Download recent badge', id='download'),
+            dbc.Input(value='recent-0', class_name='d-none', id='recent')
+        ], className='d-flex align-items-center g-1'),
+        html.P('Keep up with the latest badges.'),
         dbc.Row(badge_cols, class_name='overflow-auto flex-nowrap mb-2 pb-2'),
         html.H2('Leaderboards'),
+        html.Div([
+            'View the top badge earners by quarter. Ranked by total badges. Tiebreakers are determined based on points earned.',
+            th_helpers.components.help_icon.create_help_icon('points-help', TIER_WEIGHT_HELP, 'ms-1')
+        ]),
         dbc.Tabs(tabs, class_name='mb-1'),
     ], fluid=True)
 
@@ -319,4 +335,11 @@ clientside_callback(
     Output({'type': 'lb-collapse', 'index': MATCH}, 'is_open'),
     Input({'type': 'lb-toggle', 'index': MATCH}, 'n_clicks'),
     State({'type': 'lb-collapse', 'index': MATCH}, 'is_open'),
+)
+
+clientside_callback(
+    ClientsideFunction(namespace='clientside', function_name='downloadDomAsImage'),
+    Output('download', 'className'),
+    Input('download', 'n_clicks'),
+    State('recent', 'value'),
 )

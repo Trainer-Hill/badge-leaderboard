@@ -1,0 +1,13 @@
+services:
+  badge-leaderboard:
+    build: ./
+    restart: unless-stopped
+    networks:
+      - app-network
+    ports:
+      - "8000:8000"
+    environment:
+      - FLASK_ENV=production
+
+networks:
+  app-network:
