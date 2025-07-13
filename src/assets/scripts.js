@@ -41,20 +41,20 @@ window.dash_clientside.clientside = {
     return false;
   },
 
-  downloadDomAsImage: async function (clicks, id, theme) {
+  downloadDomAsImage: async function (clicks, id) {
     const today = new Date();
     const dateString = today.toISOString().substring(0, 10);
     fileName = `trainerhill-${id}-${dateString}.png`;
-    if (clicks > 0) {
-      html2canvas(document.getElementById(id), { useCORS: true, backgroundColor: theme ? '#222222' : '#ffffff' }).then(function (canvas) {
-        var anchorTag = document.createElement('a');
-        anchorTag.download = fileName;
-        anchorTag.href = canvas.toDataURL('image/png');
-        anchorTag.target = '_blank';
-        document.body.appendChild(anchorTag);
-        anchorTag.click();
-        document.body.removeChild(anchorTag);
-      })
-    }
+    if (!clicks || clicks == 0) { return window.dash_clientside.no_update; };
+
+    html2canvas(document.getElementById(id), { useCORS: true }).then(function (canvas) {
+      var anchorTag = document.createElement('a');
+      anchorTag.download = fileName;
+      anchorTag.href = canvas.toDataURL('image/png');
+      anchorTag.target = '_blank';
+      document.body.appendChild(anchorTag);
+      anchorTag.click();
+      document.body.removeChild(anchorTag);
+    })
   },
 }

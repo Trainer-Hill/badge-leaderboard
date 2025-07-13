@@ -320,7 +320,7 @@ def layout():
             dbc.Input(value='recent-0', class_name='d-none', id='recent')
         ], className='d-flex align-items-center g-1'),
         html.P('Keep up with the latest badges.'),
-        dbc.Row(badge_cols, class_name='overflow-auto flex-nowrap mb-2 pb-2'),
+        dbc.Row(badge_cols, class_name='overflow-auto flex-nowrap mb-2 pb-3'),
         html.H2('Leaderboards'),
         html.Div([
             'View the top badge earners by quarter. Ranked by total badges. Tiebreakers are determined based on points earned.',
