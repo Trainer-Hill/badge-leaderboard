@@ -1,6 +1,9 @@
+import base64
 import dash
 import dash_auth
 import dash_bootstrap_components as dbc
+import hashlib
+import hmac
 import os
 
 # Grab logo
@@ -26,10 +29,35 @@ app = dash.Dash(
     title=TITLE,
 )
 
+# Parameters for PBKDF2
+HASH_NAME = "sha256"
+ITERATIONS = 100_000
+SALT_SIZE = 16  # bytes
+KEY_LENGTH = 32  # bytes
+
+
+def hash_password(password: str) -> str:
+    salt = os.urandom(SALT_SIZE)
+    key = hashlib.pbkdf2_hmac(HASH_NAME, password.encode(), salt, ITERATIONS, dklen=KEY_LENGTH)
+    return base64.b64encode(salt + key).decode()  # Store both salt and key together
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    decoded = base64.b64decode(stored_hash.encode())
+    salt = decoded[:SALT_SIZE]
+    original_key = decoded[SALT_SIZE:]
+    new_key = hashlib.pbkdf2_hmac(HASH_NAME, password.encode(), salt, ITERATIONS, dklen=KEY_LENGTH)
+    return hmac.compare_digest(new_key, original_key)
+
 
 def check_user(username, password):
-    if username == os.getenv('TH_BL_USER') and password == os.getenv('TH_BL_PASSWORD'):
-        return True
+    expected_user = os.getenv("TH_BL_USER")
+    if expected_user is None or username != expected_user:
+        return False
+
+    expected_hash = os.getenv("TH_BL_PASSWORD_HASH")
+    if expected_hash:
+        return verify_password(password, expected_hash)
     return False
 
 
@@ -92,4 +120,4 @@ app.layout = serve_layout
 server = app.server
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=8080)
