@@ -166,6 +166,9 @@ _RANK_ICONS = {
 
 def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False, deck_map=None):
     rows = []
+    prev_rank = None
+    rank = 0
+    num_same = 1
     for i, (name, count, points) in enumerate(data_counter):
         idx = f"{row_type}-{title}-{i}-{name}".lower().replace(' ', '')
         toggle_id = {'type': f'lb-toggle', 'index': idx}
@@ -175,8 +178,17 @@ def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False
             label = components.deck_label.create_label(deck)
         else:
             label = name
+
+        if prev_rank and (count, points) == prev_rank:
+            num_same += 1
+        else:
+            rank += num_same
+            num_same = 1
+        prev_rank = (count, points)
+
+        rank_display = html.I(className=f'fas fa-{_RANK_ICONS[rank]}', title=f'Rank {rank}') if rank in _RANK_ICONS else rank
         rows.append(html.Tr([
-            html.Td(html.I(className=f'fas fa-{_RANK_ICONS[i+1]}') if i+1 in _RANK_ICONS else i+1, className='text-center align-middle w-0 text-dark'),
+            html.Td(rank_display, className='text-center align-middle w-0 text-dark'),
             html.Td(html.A(label, id=toggle_id, n_clicks=0), className='align-middle'),
             html.Td(count, className='text-center align-middle'),
             html.Td(points, className='text-center align-middle'),
