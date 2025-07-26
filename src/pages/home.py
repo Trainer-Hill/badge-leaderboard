@@ -189,7 +189,7 @@ def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False
         rank_display = html.I(className=f'fas fa-{_RANK_ICONS[rank]}', title=f'Rank {rank}') if rank in _RANK_ICONS else rank
         rows.append(html.Tr([
             html.Td(rank_display, className='text-center align-middle w-0 text-dark'),
-            html.Td(html.A(label, id=toggle_id, n_clicks=0), className='align-middle'),
+            html.Td(html.A(label, id=toggle_id, n_clicks=0), className='align-middle deck'),
             html.Td(count, className='text-center align-middle'),
             html.Td(points, className='text-center align-middle'),
         ]))
@@ -271,13 +271,13 @@ def _quarter_row(badges, quarter_start: datetime.date, deck_map=None):
     leaderboard = dbc.Row([
         dbc.Col([
             html.H4('Trainers'),
-            _leaderboard_table(f'{season} Season', trainer_season, trainer_season_summary, f'trainer-season-{quarter_label}', deck_map=deck_map),
             _leaderboard_table(quarter_label, trainer_quarter, trainer_quarter_summary, 'trainer-quart', deck_map=deck_map),
+            _leaderboard_table(f'{season} Season', trainer_season, trainer_season_summary, f'trainer-season-{quarter_label}', deck_map=deck_map),
         ], md=6),
         dbc.Col([
             html.H4('Decks'),
-            _leaderboard_table(f'{season} Season', deck_season, deck_season_summary, f'deck-season-{quarter_label}', deck_rows=True, deck_map=deck_map),
             _leaderboard_table(quarter_label, deck_quarter, deck_quarter_summary, 'deck-quart', deck_rows=True, deck_map=deck_map),
+            _leaderboard_table(f'{season} Season', deck_season, deck_season_summary, f'deck-season-{quarter_label}', deck_rows=True, deck_map=deck_map),
         ], md=6)
     ])
 

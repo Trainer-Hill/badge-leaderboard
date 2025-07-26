@@ -28,8 +28,10 @@
   width: 0 !important;
 }
 
-.leaderboard tr {
-  height: 42px;
+.leaderboard .deck a {
+  align-items: center;
+  display: flex;
+  height: 35px;
 }
 
 .tr-collapse {
