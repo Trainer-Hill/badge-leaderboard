@@ -2,9 +2,12 @@ import base64
 import dash
 import dash_auth
 import dash_bootstrap_components as dbc
+import dotenv
 import hashlib
 import hmac
 import os
+
+dotenv.load_dotenv(override=True)
 
 # Grab logo
 THEME = None or dbc.themes.BOOTSTRAP

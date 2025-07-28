@@ -2,4 +2,5 @@ dash
 dash-bootstrap-components
 dash-auth
 gunicorn
+python-dotenv
 th-helpers
