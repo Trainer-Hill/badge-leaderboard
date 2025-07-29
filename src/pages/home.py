@@ -52,7 +52,7 @@ def _quarter_label(start: datetime.date) -> str:
     """Return a human readable label for a quarter."""
     season = _season_start(start)
     end = _next_quarter_start(start) - datetime.timedelta(days=1)
-    return f"s{season.year + 1 - 2000} {start.strftime('%b')} - {end.strftime('%b')}"
+    return f"{season.year + 1} {start.strftime('%B')} - {end.strftime('%B')}"
 
 
 def _parse_badges():
@@ -223,76 +223,32 @@ def _counts_table(title, season_counts, quarter_counts):
     return table
 
 
-def _quarter_row(badges, quarter_start: datetime.date, deck_map=None):
-    """Create leaderboard row for a given quarter."""
-    quarter_end = _next_quarter_start(quarter_start)
-    today = datetime.date.today()
-    end_date = min(quarter_end, today + datetime.timedelta(days=1))
+def _leaderboard_section(badges, label, prefix, deck_map=None):
+    """Return the basic leaderboard section with trainer and deck tables."""
+    trainer_lb = _weighted_leaderboard(badges, 'trainer')[:10]
+    deck_lb = _weighted_leaderboard(badges, 'deck')[:10]
 
-    season_start = _season_start(quarter_start)
+    trainer_summary = _summarize_badges(badges, 'trainer', 'deck')
+    deck_summary = _summarize_badges(badges, 'deck', 'trainer')
 
-    season_badges = [
-        b for b in badges if b.get('date') and season_start <= b['date'] < end_date
-    ]
-    quarter_badges = [
-        b for b in badges if b.get('date') and quarter_start <= b['date'] < end_date
-    ]
-
-    trainer_season = _weighted_leaderboard(season_badges, 'trainer')[:10]
-    trainer_quarter = _weighted_leaderboard(quarter_badges, 'trainer')[:10]
-    deck_season = _weighted_leaderboard(season_badges, 'deck')[:10]
-    deck_quarter = _weighted_leaderboard(quarter_badges, 'deck')[:10]
-
-    trainer_season_summary = _summarize_badges(season_badges, 'trainer', 'deck')
-    trainer_quarter_summary = _summarize_badges(quarter_badges, 'trainer', 'deck')
-    deck_season_summary = _summarize_badges(season_badges, 'deck', 'trainer')
-    deck_quarter_summary = _summarize_badges(quarter_badges, 'deck', 'trainer')
-
-    season = season_start.year + 1
-    quarter_label = _quarter_label(quarter_start)
-
-    store_counts_season = _count_leaderboard(season_badges, 'store')
-    store_counts_quarter = _count_leaderboard(quarter_badges, 'store')
-    top_stores = store_counts_season.most_common(5)
-    top_store_names = [name for name, _ in top_stores]
-    store_season_top = {name: store_counts_season[name] for name in top_store_names}
-    store_quarter_top = {name: store_counts_quarter.get(name, 0) for name in top_store_names}
-
-    tier_season = _count_leaderboard(season_badges, 'tier')
-    tier_quarter = _count_leaderboard(quarter_badges, 'tier')
-
-    format_season = _count_leaderboard(season_badges, 'format')
-    format_quarter = _count_leaderboard(quarter_badges, 'format')
-
-    store_table = _counts_table('Store', store_season_top, store_quarter_top)
-    tier_table = _counts_table('Tier', tier_season, tier_quarter)
-    format_table = _counts_table('Format', format_season, format_quarter)
-
-    leaderboard = dbc.Row([
+    return dbc.Row([
         dbc.Col([
-            html.H4('Trainers'),
-            _leaderboard_table(quarter_label, trainer_quarter, trainer_quarter_summary, 'trainer-quart', deck_map=deck_map),
-            _leaderboard_table(f'{season} Season', trainer_season, trainer_season_summary, f'trainer-season-{quarter_label}', deck_map=deck_map),
+            _leaderboard_table(label, trainer_lb, trainer_summary, f'{prefix}-trainer', deck_map=deck_map),
         ], md=6),
         dbc.Col([
-            html.H4('Decks'),
-            _leaderboard_table(quarter_label, deck_quarter, deck_quarter_summary, 'deck-quart', deck_rows=True, deck_map=deck_map),
-            _leaderboard_table(f'{season} Season', deck_season, deck_season_summary, f'deck-season-{quarter_label}', deck_rows=True, deck_map=deck_map),
-        ], md=6)
+            _leaderboard_table(label, deck_lb, deck_summary, f'{prefix}-deck', deck_rows=True, deck_map=deck_map),
+        ], md=6),
     ])
 
-    stats = dbc.Row([
-        dbc.Col(store_table, lg=4, md=6),
-        dbc.Col(tier_table, lg=4, md=6),
-        dbc.Col(format_table, lg=4, md=6),
-    ])
 
-    return html.Div([
-        leaderboard,
-        html.H4('Badge Stats'),
-        html.P('Additional information about the acquired badges.'),
-        stats
-    ])
+def _filter_badges(badges, start: datetime.date, end: datetime.date):
+    return [b for b in badges if b.get('date') and start <= b['date'] < end]
+
+
+def _next_month(date: datetime.date) -> datetime.date:
+    if date.month == 12:
+        return datetime.date(date.year + 1, 1, 1)
+    return datetime.date(date.year, date.month + 1, 1)
 
 
 def layout():
@@ -303,17 +259,68 @@ def layout():
         component = components.badge.create_badge_component(b, i)
         recent_components.append(component)
 
-    quarter_starts = sorted({
-        _quarter_start(b['date'])
+    seasons = sorted({
+        _season_start(b['date']).year + 1
         for b in badges if b.get('date')
     }, reverse=True)
 
     deck_map = _create_deck_map(badges)
 
-    tabs = [
-        dbc.Tab(_quarter_row(badges, qs, deck_map=deck_map), label=_quarter_label(qs), active_tab_style={'fontWeight': 'bold'})
-        for qs in quarter_starts
-    ]
+    year_tabs = []
+    for season_year in seasons:
+        season_start = datetime.date(season_year - 1, 7, 1)
+        season_end = datetime.date(season_year, 7, 1)
+        season_badges = _filter_badges(badges, season_start, season_end)
+
+        quarter_starts = sorted({
+            _quarter_start(b['date'])
+            for b in season_badges if b.get('date')
+        }, reverse=True)
+
+        quarter_tabs = []
+        for qs in quarter_starts:
+            qe = _next_quarter_start(qs)
+            quarter_badges = _filter_badges(season_badges, qs, qe)
+
+            month_tabs = []
+            month_start = qs
+            for _ in range(3):
+                me = _next_month(month_start)
+                month_badges = _filter_badges(season_badges, month_start, me)
+                if len(month_badges) == 0:
+                    continue
+                month_tabs.append(
+                    dbc.Tab(
+                        _leaderboard_section(month_badges, month_start.strftime('%B %Y'), f'month-{month_start.isoformat()}', deck_map=deck_map),
+                        label=month_start.strftime('%B %Y'),
+                        active_tab_style={'fontWeight': 'bold'}
+                    )
+                )
+                month_start = me
+
+            quarter_tabs.append(
+                dbc.Tab(
+                    html.Div([
+                        _leaderboard_section(quarter_badges, _quarter_label(qs), f'quarter-{qs.isoformat()}', deck_map=deck_map),
+                        html.H3('Month'),
+                        dbc.Tabs(month_tabs, class_name='mt-2')
+                    ]),
+                    label=_quarter_label(qs),
+                    active_tab_style={'fontWeight': 'bold'}
+                )
+            )
+        year_tabs.append(
+            dbc.Tab(
+                html.Div([
+                    _leaderboard_section(season_badges, f'{season_year} Season', f'season-{season_year}', deck_map=deck_map),
+                    html.H3('Quarter'),
+                    dbc.Tabs(quarter_tabs, class_name='mt-2')
+                ]),
+                label=f'{str(season_year)} Season',
+                active_tab_style={'fontWeight': 'bold'}
+            )
+        )
+
 
     badge_cols = [
         dbc.Col(rc, xs=12, md=6, xl=4, class_name='bg-transparent')
@@ -338,7 +345,8 @@ def layout():
             'View the top badge earners by quarter. Ranked by total badges. Tiebreakers are determined based on points earned.',
             th_helpers.components.help_icon.create_help_icon('points-help', TIER_WEIGHT_HELP, 'ms-1')
         ]),
-        dbc.Tabs(tabs, class_name='mb-1'),
+        html.H3('Season'),
+        dbc.Tabs(year_tabs, class_name='mb-1'),
     ], fluid=True)
 
 
