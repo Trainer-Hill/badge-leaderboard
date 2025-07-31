@@ -346,7 +346,7 @@ def layout():
             th_helpers.components.help_icon.create_help_icon('points-help', TIER_WEIGHT_HELP, 'ms-1')
         ]),
         html.H3('Season'),
-        dbc.Tabs(year_tabs, class_name='mb-1'),
+        dbc.Tabs(year_tabs),
     ], fluid=True)
 
 
