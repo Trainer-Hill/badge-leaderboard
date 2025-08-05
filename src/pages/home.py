@@ -288,6 +288,7 @@ def layout():
                 me = _next_month(month_start)
                 month_badges = _filter_badges(season_badges, month_start, me)
                 if len(month_badges) == 0:
+                    month_start = me
                     continue
                 month_tabs.append(
                     dbc.Tab(
@@ -297,7 +298,7 @@ def layout():
                     )
                 )
                 month_start = me
-
+            month_tabs.reverse()
             quarter_tabs.append(
                 dbc.Tab(
                     html.Div([
@@ -309,6 +310,7 @@ def layout():
                     active_tab_style={'fontWeight': 'bold'}
                 )
             )
+        quarter_starts.reverse()
         year_tabs.append(
             dbc.Tab(
                 html.Div([

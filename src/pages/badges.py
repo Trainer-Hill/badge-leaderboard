@@ -32,7 +32,8 @@ def layout():
                 components.badge.create_badge_component(b, i),
                 xs=12,
                 md=6,
-                xl=4,
+                lg=4,
+                xl=3,
                 class_name='mb-2'
             )
             for i, b in month_badges
@@ -48,11 +49,11 @@ def layout():
                     className='mt-2'
                 ),
                 dbc.Collapse(
-                    dbc.Row(badge_rows),
+                    dbc.Row(badge_rows, justify='around'),
                     id=collapse_id,
                     is_open=(idx == 0)
                 )
-            ])
+            ], className='me-1')
         )
 
     return dbc.Container(
