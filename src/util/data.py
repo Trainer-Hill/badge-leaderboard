@@ -3,7 +3,7 @@ import functools
 import json
 import os
 
-FILENAME = os.environ.get('TH-BADGE-FILE', 'example.jsonl')
+FILENAME = os.getenv('TH_BL_FILE', 'example.jsonl')
 
 
 def read_data_from_file(filename):

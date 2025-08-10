@@ -40,6 +40,7 @@ Set the following environment variables to enable basic authentication for the a
 
 - `TH_BL_USER` – username
 - `TH_BL_PASSWORD_HASH` – password hash generated via PBKDF2 (use `hash_password` in `src/app.py` to generate)
+- `TH_BL_FILE` – filename to use for badges, defaults to `example.jsonl`
 
 ## Screenshots (using fake data)
 
