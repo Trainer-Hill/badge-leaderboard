@@ -81,6 +81,7 @@ dash_auth.BasicAuth(
     app=app,
     public_routes=[
         '/',  # Public root route
+        '/badges',
         '/login',  # Example public login page (if needed)
         '/_favicon.ico',  # Favicon (avoids auth for icon requests)
         '/_dash-layout',  # Required for initial page layout
@@ -123,4 +124,4 @@ app.layout = serve_layout
 server = app.server
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    app.run(debug=False, host='0.0.0.0', port=8080)

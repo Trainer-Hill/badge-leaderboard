@@ -2,7 +2,7 @@ import dash
 import dash_bootstrap_components as dbc
 import datetime
 from collections import Counter, defaultdict
-from dash import html, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
+from dash import html, callback, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
 
 import th_helpers.components.help_icon
 import components.badge
@@ -56,12 +56,7 @@ def _quarter_label(start: datetime.date) -> str:
 
 
 def _parse_badges():
-    badges = util.data.read_data('badges.jsonl')
-    for b in badges:
-        try:
-            b['date'] = datetime.date.fromisoformat(b.get('date'))
-        except Exception:
-            b['date'] = None
+    badges = util.data.read_data()
     return badges
 
 
@@ -207,22 +202,6 @@ def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False
     return table
 
 
-def _counts_table(title, season_counts, quarter_counts):
-    keys = set(season_counts.keys()) | set(quarter_counts.keys())
-    rows = [
-        html.Tr([
-            html.Td(k),
-            html.Td(season_counts.get(k, 0), className='text-center'),
-            html.Td(quarter_counts.get(k, 0), className='text-center'),
-        ]) for k in sorted(keys)
-    ]
-    table = dbc.Table([
-        html.Thead(html.Tr([html.Th(title), html.Td('Season', className='w-0'), html.Td('Quarter', className='w-0')])),
-        html.Tbody(rows)
-    ], bordered=True, size='sm', class_name='mb-4')
-    return table
-
-
 def _leaderboard_section(badges, label, prefix, deck_map=None):
     """Return the basic leaderboard section with trainer and deck tables."""
     trainer_lb = _weighted_leaderboard(badges, 'trainer')[:10]
@@ -254,79 +233,24 @@ def _next_month(date: datetime.date) -> datetime.date:
 def layout():
     badges = _parse_badges()
 
-    recent_components = []
-    for i, b in enumerate(badges[:10]):
-        component = components.badge.create_badge_component(b, i)
-        recent_components.append(component)
+    recent_components = [
+        components.badge.create_badge_component(b, i)
+        for i, b in enumerate(badges[:10])
+    ]
 
     seasons = sorted({
         _season_start(b['date']).year + 1
         for b in badges if b.get('date')
     }, reverse=True)
 
-    deck_map = _create_deck_map(badges)
-
-    year_tabs = []
-    for season_year in seasons:
-        season_start = datetime.date(season_year - 1, 7, 1)
-        season_end = datetime.date(season_year, 7, 1)
-        season_badges = _filter_badges(badges, season_start, season_end)
-
-        quarter_starts = sorted({
-            _quarter_start(b['date'])
-            for b in season_badges if b.get('date')
-        }, reverse=True)
-
-        quarter_tabs = []
-        for qs in quarter_starts:
-            qe = _next_quarter_start(qs)
-            quarter_badges = _filter_badges(season_badges, qs, qe)
-
-            month_tabs = []
-            month_start = qs
-            for _ in range(3):
-                me = _next_month(month_start)
-                month_badges = _filter_badges(season_badges, month_start, me)
-                if len(month_badges) == 0:
-                    month_start = me
-                    continue
-                month_tabs.append(
-                    dbc.Tab(
-                        _leaderboard_section(month_badges, month_start.strftime('%B %Y'), f'month-{month_start.isoformat()}', deck_map=deck_map),
-                        label=month_start.strftime('%B %Y'),
-                        active_tab_style={'fontWeight': 'bold'}
-                    )
-                )
-                month_start = me
-            month_tabs.reverse()
-            quarter_tabs.append(
-                dbc.Tab(
-                    html.Div([
-                        _leaderboard_section(quarter_badges, _quarter_label(qs), f'quarter-{qs.isoformat()}', deck_map=deck_map),
-                        html.H3('Month'),
-                        dbc.Tabs(month_tabs, class_name='mt-2')
-                    ]),
-                    label=_quarter_label(qs),
-                    active_tab_style={'fontWeight': 'bold'}
-                )
-            )
-        quarter_starts.reverse()
-        year_tabs.append(
-            dbc.Tab(
-                html.Div([
-                    _leaderboard_section(season_badges, f'{season_year} Season', f'season-{season_year}', deck_map=deck_map),
-                    html.H3('Quarter'),
-                    dbc.Tabs(quarter_tabs, class_name='mt-2')
-                ]),
-                label=f'{str(season_year)} Season',
-                active_tab_style={'fontWeight': 'bold'}
-            )
-        )
-
-
     badge_cols = [
         dbc.Col(rc, xs=12, md=6, xl=4, class_name='bg-transparent')
         for i, rc in enumerate(recent_components)
+    ]
+
+    season_tabs = [
+        dbc.Tab(label=f'{season} Season', tab_id=str(season), active_tab_style={'fontWeight': 'bold'})
+        for season in seasons
     ]
 
     return dbc.Container([
@@ -348,8 +272,102 @@ def layout():
             th_helpers.components.help_icon.create_help_icon('points-help', TIER_WEIGHT_HELP, 'ms-1')
         ]),
         html.H3('Season'),
-        dbc.Tabs(year_tabs),
+        dbc.Tabs(season_tabs, id='season-tabs', active_tab=str(seasons[0]) if seasons else None),
+        html.Div(id='season-content'),
     ], fluid=True)
+
+
+@callback(
+    Output('season-content', 'children'),
+    Input('season-tabs', 'active_tab'),
+)
+def render_season(active_season):
+    if not active_season:
+        return dash.no_update
+    badges = _parse_badges()
+    deck_map = _create_deck_map(badges)
+    season_year = int(active_season)
+    season_start = datetime.date(season_year - 1, 7, 1)
+    season_end = datetime.date(season_year, 7, 1)
+    season_badges = _filter_badges(badges, season_start, season_end)
+    quarter_starts = sorted({
+        _quarter_start(b['date'])
+        for b in season_badges if b.get('date')
+    }, reverse=True)
+    quarter_tabs = [
+        dbc.Tab(label=_quarter_label(qs), tab_id=qs.isoformat(), active_tab_style={'fontWeight': 'bold'})
+        for qs in quarter_starts
+    ]
+    return html.Div([
+        _leaderboard_section(season_badges, f'{season_year} Season', f'season-{season_year}', deck_map=deck_map),
+        html.H3('Quarter'),
+        dbc.Tabs(
+            quarter_tabs,
+            id={'type': 'quarter-tabs', 'index': season_year},
+            active_tab=quarter_tabs[0].tab_id if quarter_tabs else None
+        ),
+        html.Div(id={'type': 'quarter-content', 'index': season_year})
+    ])
+
+
+@callback(
+    Output({'type': 'quarter-content', 'index': MATCH}, 'children'),
+    Input({'type': 'quarter-tabs', 'index': MATCH}, 'active_tab')
+)
+def render_quarter(active_quarter):
+    if not active_quarter:
+        return dash.no_update
+    season_year = int(dash.ctx.triggered_id['index'] if dash.ctx.triggered_id else active_quarter.split('-')[0])
+    badges = _parse_badges()
+    season_start = datetime.date(season_year - 1, 7, 1)
+    season_end = datetime.date(season_year, 7, 1)
+    season_badges = _filter_badges(badges, season_start, season_end)
+    qs = datetime.date.fromisoformat(active_quarter)
+    qe = _next_quarter_start(qs)
+    quarter_badges = _filter_badges(season_badges, qs, qe)
+    month_tabs = []
+    month_start = qs
+    for _ in range(3):
+        me = _next_month(month_start)
+        month_badges = _filter_badges(season_badges, month_start, me)
+        if len(month_badges) == 0:
+            month_start = me
+            continue
+        month_tabs.append(
+            dbc.Tab(
+                label=month_start.strftime('%B %Y'),
+                tab_id=month_start.isoformat(),
+                active_tab_style={'fontWeight': 'bold'}
+            )
+        )
+        month_start = me
+    month_tabs.reverse()
+    deck_map = _create_deck_map(season_badges)
+    return html.Div([
+        _leaderboard_section(quarter_badges, _quarter_label(qs), f'quarter-{qs.isoformat()}', deck_map=deck_map),
+        html.H3('Month'),
+        dbc.Tabs(
+            month_tabs,
+            id={'type': 'month-tabs', 'index': qs.isoformat()},
+            active_tab=month_tabs[0].tab_id if month_tabs else None
+        ),
+        html.Div(id={'type': 'home-month-content', 'index': qs.isoformat()})
+    ])
+
+
+@callback(
+    Output({'type': 'home-month-content', 'index': MATCH}, 'children'),
+    Input({'type': 'month-tabs', 'index': MATCH}, 'active_tab'),
+)
+def render_month(active_month):
+    if not active_month:
+        return dash.no_update
+    month_start = datetime.date.fromisoformat(active_month)
+    month_end = _next_month(month_start)
+    badges = _parse_badges()
+    month_badges = _filter_badges(badges, month_start, month_end)
+    deck_map = _create_deck_map(badges)
+    return _leaderboard_section(month_badges, month_start.strftime('%B %Y'), f'month-{month_start.isoformat()}', deck_map=deck_map)
 
 
 clientside_callback(

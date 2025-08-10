@@ -54,7 +54,7 @@ def _create_pokemon_options():
 
 @components.layout_access_control.enforce_roles(ROLES)
 def layout():
-    data = util.data.read_data('badges.jsonl')
+    data = util.data.read_data()
 
     trainers = set()
     stores = set()
@@ -185,7 +185,7 @@ def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks, color, 
         'tier': tier,
         'format': format_type
     }
-    util.data.append_datafile('badges.jsonl', badge)
+    util.data.append_data(badge)
     return '/'
 
 
