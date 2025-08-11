@@ -319,8 +319,8 @@ def render_quarter(active_quarter):
         return dash.no_update
     season_year = int(dash.ctx.triggered_id['index'] if dash.ctx.triggered_id else active_quarter.split('-')[0])
     badges = _parse_badges()
-    season_start = datetime.date(season_year - 1, 7, 1)
-    season_end = datetime.date(season_year, 7, 1)
+    season_start = datetime.date(season_year, 7, 1)
+    season_end = datetime.date(season_year+1, 7, 1)
     season_badges = _filter_badges(badges, season_start, season_end)
     qs = datetime.date.fromisoformat(active_quarter)
     qe = _next_quarter_start(qs)

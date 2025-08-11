@@ -185,7 +185,7 @@ def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks, color, 
         'tier': tier,
         'format': format_type
     }
-    util.data.append_data(badge)
+    util.data.append_data(contents=badge)
     return '/'
 
 

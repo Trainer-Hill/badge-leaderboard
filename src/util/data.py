@@ -29,7 +29,9 @@ def read_data_from_file(filename):
 read_data = functools.partial(read_data_from_file, filename=FILENAME)
 
 
-def append_data_to_file(filename, contents):
+def append_data_to_file(filename=None, contents=None):
+    if filename is None or contents is None:
+        return
     with open(filename, 'a') as file:    # perhaps we do a file per year
         file.write(f'{json.dumps(contents)}\n')
 
