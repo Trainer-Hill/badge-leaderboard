@@ -101,13 +101,34 @@ def _summarize_badges(badges, primary_key, secondary_key):
     return summary
 
 
+def _most_unique(badges, primary_key, secondary_key):
+    """Return list of items with the most unique secondary values."""
+    uniques = defaultdict(set)
+    for b in badges:
+        primary = b.get(primary_key)
+        secondary = b.get(secondary_key)
+        if not primary or not secondary:
+            continue
+        if isinstance(primary, dict):
+            primary = primary.get('name') or primary.get('id')
+        if isinstance(secondary, dict):
+            secondary = secondary.get('name') or secondary.get('id')
+        uniques[primary].add(secondary)
+    if not uniques:
+        return []
+    counts = [(p, len(s)) for p, s in uniques.items()]
+    max_count = max(c for _, c in counts)
+    return [(p, c) for p, c in counts if c == max_count]
+
+
 TIER_WEIGHTS = {
     'locals': 1,
     'online': 1,
     'league challenge': 2,
     'league cup': 3,
     'regionals': 5,
-    'internationals': 5
+    'internationals': 5,
+    'worlds': 5
 }
 TIER_WEIGHT_HELP = [html.Div(f'{k.title()} - {v}pt{"s" if v > 1 else ""}') for k, v in TIER_WEIGHTS.items()]
 
@@ -220,6 +241,56 @@ def _leaderboard_section(badges, label, prefix, deck_map=None):
     ])
 
 
+def _season_awards(badges, deck_map=None):
+    """Return award badges for season-wide stats."""
+    trainer_unique = _most_unique(badges, 'trainer', 'deck')
+    deck_unique = _most_unique(badges, 'deck', 'trainer')
+
+    trainer_lb = _weighted_leaderboard(badges, 'trainer')
+    trainer_points = []
+    if trainer_lb:
+        max_tp = max(item[2] for item in trainer_lb)
+        trainer_points = [(name, f'{pts} pts') for name, _, pts in trainer_lb if pts == max_tp]
+
+    deck_lb = _weighted_leaderboard(badges, 'deck')
+    deck_points = []
+    if deck_lb:
+        max_dp = max(item[2] for item in deck_lb)
+        deck_points = [(name, f'{pts} pts') for name, _, pts in deck_lb if pts == max_dp]
+
+    def _award_col(title, items, use_deck=False):
+        if not items:
+            return None
+        entries = []
+        for name, value in items:
+            label = name
+            if use_deck:
+                deck = deck_map.get(name, {'name': name}) if deck_map else {'name': name}
+                label = components.deck_label.create_label(deck)
+            entries.append(
+                html.Div([
+                    label,
+                    html.Span(f'({value})', className='ms-1'),
+                ], className='d-flex justify-content-center align-items-center flex-wrap')
+            )
+        return dbc.Col(
+            dbc.Card([
+                dbc.CardHeader(title),
+                dbc.CardBody(entries)
+            ], class_name='text-center mb-2'),
+            md=6, lg=3
+        )
+
+    awards = [
+        _award_col('Most Unique Decks', trainer_unique),
+        _award_col('Most Points', trainer_points),
+        _award_col('Most Unique Trainers', deck_unique, True),
+        _award_col('Most Points', deck_points, True),
+    ]
+    awards = [a for a in awards if a]
+    return dbc.Row(awards, class_name='mb-4 g-2')
+
+
 def _filter_badges(badges, start: datetime.date, end: datetime.date):
     return [b for b in badges if b.get('date') and start <= b['date'] < end]
 
@@ -287,8 +358,8 @@ def render_season(active_season):
     badges = _parse_badges()
     deck_map = _create_deck_map(badges)
     season_year = int(active_season)
-    season_start = datetime.date(season_year - 1, 7, 1)
-    season_end = datetime.date(season_year, 7, 1)
+    season_start = datetime.date(season_year-1, 7, 1)
+    season_end = datetime.date(season_start.year+1, 7, 1)
     season_badges = _filter_badges(badges, season_start, season_end)
     quarter_starts = sorted({
         _quarter_start(b['date'])
@@ -300,6 +371,7 @@ def render_season(active_season):
     ]
     return html.Div([
         _leaderboard_section(season_badges, f'{season_year} Season', f'season-{season_year}', deck_map=deck_map),
+        _season_awards(season_badges, deck_map=deck_map),
         html.H3('Quarter'),
         dbc.Tabs(
             quarter_tabs,
@@ -319,7 +391,7 @@ def render_quarter(active_quarter):
         return dash.no_update
     season_year = int(dash.ctx.triggered_id['index'] if dash.ctx.triggered_id else active_quarter.split('-')[0])
     badges = _parse_badges()
-    season_start = datetime.date(season_year, 7, 1)
+    season_start = _season_start(datetime.datetime.strptime(active_quarter, "%Y-%m-%d").date())
     season_end = datetime.date(season_year+1, 7, 1)
     season_badges = _filter_badges(badges, season_start, season_end)
     qs = datetime.date.fromisoformat(active_quarter)
