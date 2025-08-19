@@ -339,7 +339,7 @@ def layout():
         dbc.Row(badge_cols, class_name='overflow-auto flex-nowrap mb-2 pb-3'),
         html.H2('Leaderboards'),
         html.Div([
-            'View the top badge earners by quarter. Ranked by total badges. Tiebreakers are determined based on points earned.',
+            'View the top badge earners by season, quarter, and month. Ranked by total badges. Tiebreakers are determined based on points earned.',
             th_helpers.components.help_icon.create_help_icon('points-help', TIER_WEIGHT_HELP, 'ms-1')
         ]),
         html.H3('Season'),
