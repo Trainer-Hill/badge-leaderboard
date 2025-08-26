@@ -3,11 +3,13 @@ services:
     build: ./
     restart: unless-stopped
     networks:
-      - app-network
-    ports:
-      - "8000:8000"
+      - proxied
     environment:
       - FLASK_ENV=production
-
-networks:
-  app-network:
+    volumes:
+      - type: bind
+        source: badges.jsonl
+        target: /app/src/badges.jsonl
+    labels:
+      caddy: badges.areazerotcg.com
+      caddy.reverse_proxy: "{{ upstreams 8000 }}"
