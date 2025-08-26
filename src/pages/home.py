@@ -331,6 +331,10 @@ def layout():
             class_name='mb-1'
         ),
         html.Div([
+            dbc.Button('View All Badges', href='/badges', color='primary', class_name='me-2'),
+            dbc.Button('View Badges per Player', href='/players', color='primary')
+        ], className='mb-1'),
+        html.Div([
             html.H2('Recent Badges', className='d-flex mb-0 me-1'),
             dbc.Button(html.I(className='fas fa-download'), title='Download recent badge', id='download'),
             dbc.Input(value='recent-0', class_name='d-none', id='recent')
