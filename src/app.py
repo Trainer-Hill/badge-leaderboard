@@ -9,6 +9,11 @@ import os
 
 dotenv.load_dotenv(override=True)
 
+if os.environ.get('FLASK_ENV', 'production'):
+    print('Monkey patching for Gevent')
+    from gevent import monkey
+    monkey.patch_all()
+
 # Grab logo
 THEME = None or dbc.themes.BOOTSTRAP
 TITLE = None or 'Badge Leaderboard'
