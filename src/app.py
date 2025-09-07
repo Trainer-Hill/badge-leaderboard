@@ -87,6 +87,7 @@ dash_auth.BasicAuth(
     public_routes=[
         '/',  # Public root route
         '/badges',
+        '/health',
         '/players',
         '/login',  # Example public login page (if needed)
         '/_favicon.ico',  # Favicon (avoids auth for icon requests)

@@ -331,7 +331,7 @@ def layout():
             class_name='mb-1'
         ),
         html.Div([
-            dbc.Button('View All Badges', href='/badges', color='primary', class_name='me-2'),
+            dbc.Button('View All Badges', href='/badges', color='primary', class_name='me-1 mb-1'),
             dbc.Button('View Badges per Player', href='/players', color='primary')
         ], className='mb-1'),
         html.Div([
