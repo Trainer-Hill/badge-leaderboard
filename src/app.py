@@ -9,7 +9,7 @@ import os
 
 dotenv.load_dotenv(override=True)
 
-if os.environ.get('FLASK_ENV', 'production'):
+if os.environ.get('FLASK_ENV', 'production') == 'production':
     print('Monkey patching for Gevent')
     from gevent import monkey
     monkey.patch_all()

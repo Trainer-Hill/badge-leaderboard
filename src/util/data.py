@@ -3,7 +3,9 @@ import functools
 import json
 import os
 
-FILENAME = os.getenv('TH_BL_FILE', 'example.jsonl')
+EXAMPLE = 'example.jsonl'
+FILENAME = os.getenv('TH_BL_FILE', EXAMPLE)
+IS_DEMO = FILENAME == EXAMPLE
 
 
 def read_data_from_file(filename):

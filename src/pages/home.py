@@ -324,16 +324,26 @@ def layout():
         for season in seasons
     ]
 
+    demo_section = [
+        html.Br(),
+        html.Span('Interested in running a badge leaderboard for your community? Reach out via our'),
+        html.A('feedback form', href='https://www.trainerhill.com/feedback?page=badges', className='alert-link mx-1'),
+        'to discuss opportunities.'
+    ] if util.data.IS_DEMO else []
+
     return dbc.Container([
         dbc.Alert(
-            'Welcome to the Badge Leaderboard!',
+            [
+                html.H4('Welcome to the Badge Leaderboard!', className='alert-heading'),
+                html.Span('Track recent badges and explore top earners by season, quarter, and month.')
+            ] + demo_section,
             color='info',
             class_name='mb-1'
         ),
         html.Div([
             dbc.Button('View All Badges', href='/badges', color='primary', class_name='me-1 mb-1'),
-            dbc.Button('View Badges per Player', href='/players', color='primary')
-        ], className='mb-1'),
+            dbc.Button('View Badges per Player', href='/players', color='primary', class_name='mb-1')
+        ]),
         html.Div([
             html.H2('Recent Badges', className='d-flex mb-0 me-1'),
             dbc.Button(html.I(className='fas fa-download'), title='Download recent badge', id='download'),
@@ -343,10 +353,18 @@ def layout():
         dbc.Row(badge_cols, class_name='overflow-auto flex-nowrap mb-2 pb-3'),
         html.H2('Leaderboards'),
         html.Div([
+            'Jump to:',
+            html.A('Season', href='#season', className='mx-2'),
+            '/',
+            html.A('Quarter', href='#quarter', className='mx-2'),
+            '/',
+            html.A('Month', href='#month', className='mx-2')
+        ], className='mb-1'),
+        html.Div([
             'View the top badge earners by season, quarter, and month. Ranked by total badges. Tiebreakers are determined based on points earned.',
             th_helpers.components.help_icon.create_help_icon('points-help', TIER_WEIGHT_HELP, 'ms-1')
         ]),
-        html.H3('Season'),
+        html.H3('Season', id='season'),
         dbc.Tabs(season_tabs, id='season-tabs', active_tab=str(seasons[0]) if seasons else None),
         html.Div(id='season-content'),
     ], fluid=True)
@@ -376,7 +394,7 @@ def render_season(active_season):
     return html.Div([
         _leaderboard_section(season_badges, f'{season_year} Season', f'season-{season_year}', deck_map=deck_map),
         _season_awards(season_badges, deck_map=deck_map),
-        html.H3('Quarter'),
+        html.H3('Quarter', id='quarter'),
         dbc.Tabs(
             quarter_tabs,
             id={'type': 'quarter-tabs', 'index': season_year},
@@ -421,7 +439,7 @@ def render_quarter(active_quarter):
     deck_map = _create_deck_map(season_badges)
     return html.Div([
         _leaderboard_section(quarter_badges, _quarter_label(qs), f'quarter-{qs.isoformat()}', deck_map=deck_map),
-        html.H3('Month'),
+        html.H3('Month', id='month'),
         dbc.Tabs(
             month_tabs,
             id={'type': 'month-tabs', 'index': qs.isoformat()},
