@@ -21,18 +21,6 @@ def layout():
 
     month_components = []
     for idx, month_start in enumerate(sorted(month_map.keys(), reverse=True)):
-        # month_badges = month_map[month_start]
-        # badge_rows = [
-        #     dbc.Col(
-        #         components.badge.create_badge_component(b, i),
-        #         xs=12,
-        #         md=6,
-        #         lg=4,
-        #         # xl=3,
-        #         class_name='mb-2'
-        #     )
-        #     for i, b in month_badges
-        # ]
         toggle_id = {'type': 'month-toggle', 'index': month_start.isoformat()}
         collapse_id = {'type': 'month-collapse', 'index': month_start.isoformat()}
         content_id = {'type': 'month-content', 'index': month_start.isoformat()}
@@ -94,7 +82,7 @@ def load_month_badges(is_open, children, collapse_id):
     badge_rows = [
         dbc.Col(
             components.badge.create_badge_component(b, i),
-            xs=12, md=6, lg=4,
+            xs=12, md=6, lg=4, xxl=3,
             class_name='mb-2'
         )
         for i, b in enumerate(filtered)

@@ -10,6 +10,10 @@ window.dash_clientside.clientside = {
     return isOpen;
   },
 
+  updatePageFluidity: function (path) {
+    return path === '/badges';
+  },
+
   customRadioEnableAdd: function (input, options) {
     if (input === undefined) { console.log('returning'); return true; }
     if (input.length === 0) { return true; }

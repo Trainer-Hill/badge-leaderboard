@@ -121,7 +121,7 @@ def serve_layout():
             ]), color='dark', dark=True),
             dbc.Container([
                 dash.page_container,
-            ], class_name='page-container my-1')
+            ], class_name='my-1', id='page_container')
         ],
         className='dbc app'
     )
@@ -129,6 +129,12 @@ def serve_layout():
 
 app.layout = serve_layout
 server = app.server
+
+dash.clientside_callback(
+    dash.ClientsideFunction(namespace='clientside', function_name='updatePageFluidity'),
+    dash.Output('page_container', 'fluid'),
+    dash.Input('_pages_location', 'pathname'),
+)
 
 
 @server.get('/health')
