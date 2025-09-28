@@ -8,8 +8,8 @@ import hmac
 import os
 
 dotenv.load_dotenv(override=True)
-
-if os.environ.get('FLASK_ENV', 'production') == 'production':
+IS_PROD = os.environ.get('FLASK_ENV', 'production') == 'production'
+if IS_PROD:
     print('Monkey patching for Gevent')
     from gevent import monkey
     monkey.patch_all()
@@ -143,4 +143,4 @@ def check_health():
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=8080)
+    app.run(debug=not IS_PROD, host='0.0.0.0', port=8080)
