@@ -364,6 +364,7 @@ def layout():
             'View the top badge earners by season, quarter, and month. Ranked by total badges. Tiebreakers are determined based on points earned.',
             th_helpers.components.help_icon.create_help_icon('points-help', TIER_WEIGHT_HELP, 'ms-1')
         ]),
+        html.P('Click a trainer or deck name to see the badges they have earned.'),
         html.H3('Season', id='season'),
         dbc.Tabs(season_tabs, id='season-tabs', active_tab=str(seasons[0]) if seasons else None),
         html.Div(id='season-content'),
