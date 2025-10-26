@@ -345,7 +345,8 @@ def layout():
         html.Div([
             dbc.Button('View All Badges', href='/badges', color='primary'),
             dbc.Button('View Badges per Player', href='/players', color='primary'),
-            dbc.Button('View Trainers per Deck', href='/decks', color='primary')
+            dbc.Button('View Trainers per Deck', href='/decks', color='primary'),
+            dbc.Button('View Rules', href='/rules', color='secondary')
         ], className='d-flex gap-1 flex-wrap'),
         html.Div([
             html.H2('Recent Badges', className='d-flex mb-0'),

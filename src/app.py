@@ -90,6 +90,7 @@ dash_auth.BasicAuth(
         '/health',
         '/players',
         '/decks',
+        '/rules',
         '/login',  # Example public login page (if needed)
         '/_favicon.ico',  # Favicon (avoids auth for icon requests)
         '/_dash-layout',  # Required for initial page layout
