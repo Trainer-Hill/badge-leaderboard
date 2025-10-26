@@ -219,7 +219,7 @@ def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False
     table = dbc.Table([
         html.Thead(html.Tr([html.Th(title, colSpan=2), html.Td('Badges', className='w-0'), html.Td('Points', className='w-0')])),
         html.Tbody(rows)
-    ], bordered=True, size='sm', class_name='mb-2 leaderboard')
+    ], bordered=True, size='sm', class_name='mb-2 leaderboard', responsive=True)
     return table
 
 
@@ -341,14 +341,15 @@ def layout():
             class_name='mb-1'
         ),
         html.Div([
-            dbc.Button('View All Badges', href='/badges', color='primary', class_name='me-1 mb-1'),
-            dbc.Button('View Badges per Player', href='/players', color='primary', class_name='mb-1')
-        ]),
+            dbc.Button('View All Badges', href='/badges', color='primary'),
+            dbc.Button('View Badges per Player', href='/players', color='primary'),
+            dbc.Button('View Trainers per Deck', href='/decks', color='primary')
+        ], className='d-flex gap-1 flex-wrap'),
         html.Div([
-            html.H2('Recent Badges', className='d-flex mb-0 me-1'),
+            html.H2('Recent Badges', className='d-flex mb-0'),
             dbc.Button(html.I(className='fas fa-download'), title='Download recent badge', id='download'),
             dbc.Input(value='recent-0', class_name='d-none', id='recent')
-        ], className='d-flex align-items-center g-1'),
+        ], className='d-flex align-items-center gap-1 my-1'),
         html.P('Keep up with the latest badges.'),
         dbc.Row(badge_cols, class_name='overflow-auto flex-nowrap mb-2 pb-3'),
         html.H2('Leaderboards'),

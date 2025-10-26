@@ -1,24 +1,23 @@
 import dash
 import dash_bootstrap_components as dbc
-from collections import Counter
 from dash import html, dcc, callback, clientside_callback, ClientsideFunction, Output, Input, State
 
 import components.badge
 import util.data
+import util.grouping
 
-# Register the page with Dash
-# Path is '/players'
 dash.register_page(__name__, path='/players')
 
 
 def layout():
     """Layout for the player profile page."""
     badges = util.data.read_data()
-    counts = Counter(b.get('trainer') for b in badges if b.get('trainer'))
-    player_options = [
-        {"label": f"{name} ({count})", "value": name}
-        for name, count in sorted(counts.items(), key=lambda x: (-x[1], x[0]))
-    ]
+    grouped = util.grouping.group_badges(badges, lambda b: b.get('trainer'))
+    sorted_players = util.grouping.sort_group_items(grouped)
+    player_options = util.grouping.dropdown_options(
+        sorted_players,
+        lambda name, player_badges: f"{name} ({len(player_badges)})"
+    )
 
     return dbc.Container([
         html.Div([

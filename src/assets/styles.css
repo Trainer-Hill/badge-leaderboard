@@ -31,7 +31,7 @@
 .leaderboard .deck a {
   align-items: center;
   display: flex;
-  height: 35px;
+  min-height: 35px;
 }
 
 .tr-collapse {
