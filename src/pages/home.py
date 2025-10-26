@@ -8,6 +8,8 @@ import th_helpers.components.help_icon
 import components.badge
 import components.deck_label
 import util.data
+# TODO badge information
+# import util.badges
 
 dash.register_page(
     __name__,
