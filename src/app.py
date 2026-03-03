@@ -1,10 +1,4 @@
-import base64
-import dash
-import dash_auth
-import dash_bootstrap_components as dbc
 import dotenv
-import hashlib
-import hmac
 import os
 
 dotenv.load_dotenv(override=True)
@@ -13,6 +7,13 @@ if IS_PROD:
     print('Monkey patching for Gevent')
     from gevent import monkey
     monkey.patch_all()
+
+import base64
+import dash
+import dash_auth
+import dash_bootstrap_components as dbc
+import hashlib
+import hmac
 
 # Grab logo
 THEME = None or dbc.themes.BOOTSTRAP

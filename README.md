@@ -48,6 +48,10 @@ Set the following environment variables to enable basic authentication for the a
 
 ![Badge gallery placeholder](docs/images/badges-placeholder.png)
 
+## Exporting data to time series
+
+`PYTHONPATH=src python -m util.export_time_series out.csv --cumulative`
+
 ## TODO
 
 - [ ] make different it game generic so other systems could configure a badge system by providing icons/backgorun icons/etc.

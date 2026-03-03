@@ -6,7 +6,7 @@ bind = "0.0.0.0:8000"
 backlog = 128
 
 # Concurrency model
-workers = 1                   # single vCPU → keep this at 1
+workers = 2                   # single vCPU → keep this at 1
 worker_class = "gevent"
 worker_connections = 200      # extra headroom with 2 GB RAM
 
