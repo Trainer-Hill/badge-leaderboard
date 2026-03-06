@@ -123,6 +123,38 @@ def _most_unique(badges, primary_key, secondary_key):
     return [(p, c) for p, c in counts if c == max_count]
 
 
+def _locked_in_players(badges, threshold=4):
+    """Return player/deck pairs that earned at least threshold badges on one deck."""
+    badges_by_player_deck = Counter()
+    deck_names = {}
+    for b in badges:
+        trainer = b.get('trainer')
+        deck = b.get('deck')
+        if not trainer or not deck:
+            continue
+        if isinstance(deck, dict):
+            deck_id = deck.get('id') or deck.get('name')
+            deck_name = deck.get('name') or deck_id
+        else:
+            deck_id = deck
+            deck_name = deck
+        if not deck_id:
+            continue
+        badges_by_player_deck[(trainer, deck_id)] += 1
+        deck_names[deck_id] = deck_name
+
+    locked_in_pairs = [
+        (trainer, deck_id, deck_names.get(deck_id, deck_id), count)
+        for (trainer, deck_id), count in badges_by_player_deck.items()
+        if count >= threshold
+    ]
+
+    return sorted(
+        locked_in_pairs,
+        key=lambda item: (-item[3], item[0], item[2])
+    )
+
+
 TIER_WEIGHTS = {
     'locals': 1,
     'online': 1,
@@ -260,7 +292,9 @@ def _season_awards(badges, deck_map=None):
         max_dp = max(item[2] for item in deck_lb)
         deck_points = [(name, f'{pts} pts') for name, _, pts in deck_lb if pts == max_dp]
 
-    def _award_col(title, items, use_deck=False):
+    locked_in = _locked_in_players(badges)
+
+    def _award_col(title, items, use_deck=False, col_md=6, col_lg=3):
         if not items:
             return None
         entries = []
@@ -273,14 +307,14 @@ def _season_awards(badges, deck_map=None):
                 html.Div([
                     label,
                     html.Span(f'({value})', className='ms-1'),
-                ], className='d-flex justify-content-center align-items-center flex-wrap')
+                ], className='d-flex justify-content-center align-items-center')
             )
         return dbc.Col(
             dbc.Card([
                 dbc.CardHeader(title),
                 dbc.CardBody(entries)
             ], class_name='text-center mb-2'),
-            md=6, lg=3
+            md=col_md, lg=col_lg
         )
 
     awards = [
@@ -288,6 +322,15 @@ def _season_awards(badges, deck_map=None):
         _award_col('Most Points', trainer_points),
         _award_col('Most Unique Trainers', deck_unique, True),
         _award_col('Most Points', deck_points, True),
+        _award_col(
+            'Locked In',
+            [
+                (f'{trainer} — {deck_name}', f'{badge_count}')
+                for trainer, _, deck_name, badge_count in locked_in
+            ],
+            col_md=12,
+            col_lg=6
+        ),
     ]
     awards = [a for a in awards if a]
     return dbc.Row(awards, class_name='mb-4 g-2')
