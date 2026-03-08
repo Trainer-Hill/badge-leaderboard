@@ -1,4 +1,4 @@
-dash
+dash<4.0.0
 dash-bootstrap-components
 dash-auth
 gevent
