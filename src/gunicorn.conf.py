@@ -20,7 +20,6 @@ max_requests = 1000
 max_requests_jitter = 100
 
 # Memory / startup
-preload_app = True
 worker_tmp_dir = "/dev/shm" if os.path.exists("/dev/shm") else tempfile.gettempdir()
 
 # Logging to stdout/stderr (supervisord picks these up)
