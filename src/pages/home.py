@@ -293,6 +293,58 @@ def _leaderboard_section(badges, label, prefix, deck_map=None):
     ])
 
 
+def _totals_badges(badges):
+    """Return summary metric cards for a badge collection."""
+    total_badges = len(badges)
+    unique_trainers = {
+        b.get('trainer')
+        for b in badges
+        if b.get('trainer')
+    }
+    unique_decks = set()
+    unique_stores = {
+        b.get('store')
+        for b in badges
+        if b.get('store')
+    }
+    for badge in badges:
+        deck = badge.get('deck')
+        if not deck:
+            continue
+        if isinstance(deck, dict):
+            deck_value = deck.get('name') or deck.get('id')
+        else:
+            deck_value = deck
+        if deck_value:
+            unique_decks.add(deck_value)
+
+    metrics = [
+        ('Total Badges', total_badges),
+        ('Unique Trainers', len(unique_trainers)),
+        ('Unique Decks', len(unique_decks)),
+        ('Unique Stores', len(unique_stores)),
+    ]
+
+    return dbc.Row(
+        [
+            dbc.Col(
+                dbc.Card(
+                    dbc.CardBody([
+                        html.Div(label, className='text-muted'),
+                        html.H4(str(value), className='mb-0'),
+                    ]),
+                    class_name='text-center h-100'
+                ),
+                xs=6,
+                lg=3,
+                class_name='mb-1'
+            )
+            for label, value in metrics
+        ],
+        class_name='g-2 my-1'
+    )
+
+
 def _season_awards(badges, deck_map=None):
     """Return award badges for season-wide stats."""
     trainer_unique = _most_unique(badges, 'trainer', 'deck')
@@ -468,6 +520,7 @@ def render_season(active_season):
         for qs in quarter_starts
     ]
     return html.Div([
+        _totals_badges(season_badges),
         _leaderboard_section(season_badges, f'{season_year} Season', f'season-{season_year}', deck_map=deck_map),
         _season_awards(season_badges, deck_map=deck_map),
         html.H3('Quarter', id='quarter'),
@@ -514,6 +567,7 @@ def render_quarter(active_quarter):
     month_tabs.reverse()
     deck_map = _create_deck_map(season_badges)
     return html.Div([
+        _totals_badges(quarter_badges),
         _leaderboard_section(quarter_badges, _quarter_label(qs), f'quarter-{qs.isoformat()}', deck_map=deck_map),
         html.H3('Month', id='month'),
         dbc.Tabs(
@@ -537,7 +591,10 @@ def render_month(active_month):
     badges = _parse_badges()
     month_badges = _filter_badges(badges, month_start, month_end)
     deck_map = _create_deck_map(badges)
-    return _leaderboard_section(month_badges, month_start.strftime('%B %Y'), f'month-{month_start.isoformat()}', deck_map=deck_map)
+    return html.Div([
+        _totals_badges(month_badges),
+        _leaderboard_section(month_badges, month_start.strftime('%B %Y'), f'month-{month_start.isoformat()}', deck_map=deck_map)
+    ])
 
 
 clientside_callback(
