@@ -155,6 +155,24 @@ def _locked_in_players(badges, threshold=4):
     )
 
 
+def _players_with_badges_across_tiers(badges, threshold=4):
+    """Return players who earned badges across at least `threshold` distinct tiers."""
+    tiers_by_player = defaultdict(set)
+    for b in badges:
+        trainer = b.get('trainer')
+        tier = (b.get('tier') or '').strip().title()
+        if not trainer or not tier:
+            continue
+        tiers_by_player[trainer].add(tier)
+
+    qualified_players = [
+        (trainer, len(tiers))
+        for trainer, tiers in tiers_by_player.items()
+        if len(tiers) >= threshold
+    ]
+    return sorted(qualified_players, key=lambda item: (-item[1], item[0]))
+
+
 TIER_WEIGHTS = {
     'locals': 1,
     'online': 1,
@@ -293,6 +311,7 @@ def _season_awards(badges, deck_map=None):
         deck_points = [(name, f'{pts} pts') for name, _, pts in deck_lb if pts == max_dp]
 
     locked_in = _locked_in_players(badges)
+    tiers_played = _players_with_badges_across_tiers(badges, threshold=4)
 
     def _award_col(title, items, use_deck=False, col_md=6, col_lg=3):
         if not items:
@@ -327,6 +346,15 @@ def _season_awards(badges, deck_map=None):
             [
                 (f'{trainer} — {deck_name}', f'{badge_count}')
                 for trainer, _, deck_name, badge_count in locked_in
+            ],
+            col_md=12,
+            col_lg=6
+        ),
+        _award_col(
+            'Tier Collector',
+            [
+                (trainer, f'{tier_count} tiers')
+                for trainer, tier_count in tiers_played
             ],
             col_md=12,
             col_lg=6
