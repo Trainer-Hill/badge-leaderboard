@@ -17,6 +17,49 @@ def _deck_name_from_badges(deck_badges):
     return deck.get('name') or deck.get('id')
 
 
+def _deck_totals(deck_badges):
+    """Return summary metric cards for a deck's badges."""
+    total_trainers = len([
+        b for b in deck_badges
+        if b.get('trainer')
+    ])
+    unique_trainers = {
+        b.get('trainer')
+        for b in deck_badges
+        if b.get('trainer')
+    }
+    unique_stores = {
+        b.get('store')
+        for b in deck_badges
+        if b.get('store')
+    }
+
+    metrics = [
+        ('Total Trainers', total_trainers),
+        ('Unique Trainers', len(unique_trainers)),
+        ('Unique Stores', len(unique_stores)),
+    ]
+
+    return dbc.Row(
+        [
+            dbc.Col(
+                dbc.Card(
+                    dbc.CardBody([
+                        html.Div(label, className='text-muted'),
+                        html.H4(str(value), className='mb-0'),
+                    ]),
+                    class_name='text-center h-100'
+                ),
+                xs=12,
+                md=4,
+                class_name='mb-1'
+            )
+            for label, value in metrics
+        ],
+        class_name='g-2 my-1'
+    )
+
+
 def layout():
     """Layout for the deck profile page."""
     badges = util.data.read_data()
@@ -95,5 +138,6 @@ def render_deck_badges(deck_id):
         header_children.insert(0, html.Div(deck_label, className='d-flex justify-content-center mb-2'))
     return html.Div([
         *header_children,
+        _deck_totals(deck_badges),
         dbc.Row(badge_cols, justify='around')
     ])

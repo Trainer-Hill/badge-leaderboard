@@ -9,6 +9,51 @@ import util.grouping
 dash.register_page(__name__, path='/players')
 
 
+def _player_totals(player_badges):
+    """Return summary metric cards for a player's badges."""
+    unique_decks = set()
+    unique_stores = {
+        b.get('store')
+        for b in player_badges
+        if b.get('store')
+    }
+    for badge in player_badges:
+        deck = badge.get('deck')
+        if not deck:
+            continue
+        if isinstance(deck, dict):
+            deck_value = deck.get('name') or deck.get('id')
+        else:
+            deck_value = deck
+        if deck_value:
+            unique_decks.add(deck_value)
+
+    metrics = [
+        ('Total Badges', len(player_badges)),
+        ('Unique Decks', len(unique_decks)),
+        ('Unique Stores', len(unique_stores)),
+    ]
+
+    return dbc.Row(
+        [
+            dbc.Col(
+                dbc.Card(
+                    dbc.CardBody([
+                        html.Div(label, className='text-muted'),
+                        html.H4(str(value), className='mb-0'),
+                    ]),
+                    class_name='text-center h-100'
+                ),
+                xs=12,
+                md=4,
+                class_name='mb-1'
+            )
+            for label, value in metrics
+        ],
+        class_name='g-2 my-1'
+    )
+
+
 def layout():
     """Layout for the player profile page."""
     badges = util.data.read_data()
@@ -66,5 +111,6 @@ def render_player_badges(player):
     header = html.H3(f"{player} - {len(player_badges)} badge{'s' if len(player_badges) != 1 else ''}")
     return html.Div([
         header,
+        _player_totals(player_badges),
         dbc.Row(badge_cols, justify='around')
     ])
