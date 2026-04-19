@@ -4,4 +4,4 @@ dash-auth
 gevent
 gunicorn
 python-dotenv
-th-helpers
+th-helpers>=0.1.21
