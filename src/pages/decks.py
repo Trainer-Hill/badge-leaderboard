@@ -37,7 +37,7 @@ def _deck_totals(deck_badges):
     metrics = [
         ('Total Trainers', total_trainers),
         ('Unique Trainers', len(unique_trainers)),
-        ('Unique Stores', len(unique_stores)),
+        ('Unique Locations', len(unique_stores)),
     ]
 
     return dbc.Row(

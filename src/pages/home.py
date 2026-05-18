@@ -322,7 +322,7 @@ def _totals_badges(badges):
         ('Total Badges', total_badges),
         ('Unique Trainers', len(unique_trainers)),
         ('Unique Decks', len(unique_decks)),
-        ('Unique Stores', len(unique_stores)),
+        ('Unique Locations', len(unique_stores)),
     ]
 
     return dbc.Row(
@@ -467,6 +467,7 @@ def layout():
         ),
         html.Div([
             dbc.Button('View All Badges', href='/badges', color='primary'),
+            dbc.Button('View Full Rankings', href='/leaderboard', color='primary'),
             dbc.Button('View Badges per Player', href='/players', color='primary'),
             dbc.Button('View Trainers per Deck', href='/decks', color='primary'),
             dbc.Button('View Rules', href='/rules', color='secondary')
