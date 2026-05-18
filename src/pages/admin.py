@@ -37,6 +37,8 @@ format_input = f'{inputs_ids}-format'
 color_input = f'{inputs_ids}-color'
 background_input = f'{inputs_ids}-background'
 save = f'{PREFIX}-save'
+edit_select = f'{PREFIX}-edit-select'
+edit_index = f'{PREFIX}-edit-index'
 
 
 def _create_pokemon_options():
@@ -109,12 +111,37 @@ def layout():
         components.CustomRadioInputAIO.CustomRadioInputAIO(aio_id=format_input, options=list(formats)),
     ])
 
+    edit_options = []
+    for badge in data:
+        trainer = badge.get('trainer', '?')
+        store_name = badge.get('store', '?')
+        date = badge.get('date')
+        date_str = date.isoformat() if date else '?'
+        tier = badge.get('tier', '')
+        edit_options.append({
+            'label': f'{trainer} — {store_name} — {date_str} ({tier})',
+            'value': badge.get('_line'),
+        })
+
+    edit_section = html.Div([
+        dbc.Label('Edit Existing Badge'),
+        dcc.Dropdown(
+            id=edit_select,
+            options=edit_options,
+            placeholder='Select a badge to edit...',
+            clearable=True,
+        ),
+        html.Hr(),
+    ])
+
     component = html.Div([
+        edit_section,
         inputs,
         dbc.Button([
             html.I(className='fas fa-plus me-1'),
             'Save Badge'
         ], id=save, class_name='float-end'),
+        dcc.Store(id=edit_index, data=None),
         dcc.Store(id=deck_store, data=decks),
         html.Div(style={'marginBottom': '256px'})
     ])
@@ -131,6 +158,55 @@ def _init_deck_options(store):
     if not store:
         return []
     return [{'label': components.deck_label.create_label(deck), 'value': deck['id']} for deck in store.values()]
+
+
+@dash_auth.protected_callback(
+    Output(components.CustomRadioInputAIO.CustomRadioInputAIO.ids.dropdown(trainer_input), 'value', allow_duplicate=True),
+    Output(pronoun_input, 'value'),
+    Output(deck_input, 'value'),
+    Output(components.CustomRadioInputAIO.CustomRadioInputAIO.ids.dropdown(store_input), 'value', allow_duplicate=True),
+    Output(date_input, 'date'),
+    Output(color_input, 'value'),
+    Output(background_input, 'value'),
+    Output(tier_input, 'value'),
+    Output(components.CustomRadioInputAIO.CustomRadioInputAIO.ids.dropdown(format_input), 'value', allow_duplicate=True),
+    Output(edit_index, 'data'),
+    Input(edit_select, 'value'),
+    groups=ROLES,
+    prevent_initial_call=True,
+)
+def _load_edit_badge(line):
+    if line is None:
+        return None, 'their', None, None, datetime.date.today().isoformat(), '#ffffff', None, 'Locals', None, None
+    badges = util.data.read_data()
+    badge = next((b for b in badges if b.get('_line') == line), None)
+    if badge is None:
+        raise dash.exceptions.PreventUpdate
+    date = badge.get('date')
+    deck = badge.get('deck') or {}
+    return (
+        badge.get('trainer'),
+        badge.get('pronouns', 'their'),
+        deck.get('id'),
+        badge.get('store'),
+        date.isoformat() if date else None,
+        badge.get('color', '#ffffff'),
+        badge.get('background'),
+        badge.get('tier', 'Locals'),
+        badge.get('format'),
+        line,
+    )
+
+
+@dash_auth.protected_callback(
+    Output(save, 'children'),
+    Input(edit_index, 'data'),
+    groups=ROLES,
+)
+def _update_save_label(edit_line):
+    if edit_line is not None:
+        return [html.I(className='fas fa-save me-1'), 'Update Badge']
+    return [html.I(className='fas fa-plus me-1'), 'Save Badge']
 
 
 @dash_auth.protected_callback(
@@ -165,11 +241,11 @@ def _add_deck(n_clicks, name, icons, store):
     State(background_input, 'value'),
     State(tier_input, 'value'),
     State(components.CustomRadioInputAIO.CustomRadioInputAIO.ids.dropdown(format_input), 'value'),
+    State(edit_index, 'data'),
     groups=ROLES,
     prevent_initial_call=True
 )
-def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks, color, background, tier, format_type):
-    """Append a badge to the badges file"""
+def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks, color, background, tier, format_type, edit_line):
     if not n_clicks:
         raise dash.exceptions.PreventUpdate
 
@@ -185,7 +261,10 @@ def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks, color, 
         'tier': tier,
         'format': format_type
     }
-    util.data.append_data(contents=badge)
+    if edit_line is not None:
+        util.data.update_data(line_index=edit_line, contents=badge)
+    else:
+        util.data.append_data(contents=badge)
     return '/'
 
 

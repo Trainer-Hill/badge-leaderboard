@@ -50,11 +50,25 @@ def read_data_from_file(filename):
         ),
         reverse=True,
     )
-    for b in badges:
-        b.pop('_line', None)
-
     _READ_CACHE[filename] = {'version': file_version, 'data': badges}
     return badges
+
+
+def update_data_in_file(filename=None, line_index=None, contents=None):
+    if filename is None or line_index is None or contents is None:
+        return
+    safe = {k: v for k, v in contents.items() if k != '_line'}
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+    if line_index >= len(lines):
+        return
+    lines[line_index] = f'{json.dumps(safe)}\n'
+    with open(filename, 'w') as f:
+        f.writelines(lines)
+    _READ_CACHE.pop(filename, None)
+
+
+update_data = functools.partial(update_data_in_file, filename=FILENAME)
 
 
 read_data = functools.partial(read_data_from_file, filename=FILENAME)
