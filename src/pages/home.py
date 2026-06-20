@@ -155,6 +155,40 @@ def _locked_in_players(badges, threshold=4):
     )
 
 
+def _deck_diversity_players(badges, min_badges=5, min_score=None, max_score=None):
+    """Return players filtered by unique²/total score. Score rewards breadth and penalizes repeats.
+
+    Pass min_score to get the most diverse (Deck Nomad), max_score for the least (One Trick).
+    """
+    decks_by_player = defaultdict(set)
+    total_by_player = Counter()
+    for b in badges:
+        trainer = b.get('trainer')
+        deck = b.get('deck')
+        if not trainer or not deck:
+            continue
+        deck_id = deck.get('id') or deck.get('name') if isinstance(deck, dict) else deck
+        if not deck_id:
+            continue
+        decks_by_player[trainer].add(deck_id)
+        total_by_player[trainer] += 1
+
+    results = []
+    for trainer, decks in decks_by_player.items():
+        total = total_by_player[trainer]
+        if total < min_badges:
+            continue
+        score = len(decks) ** 2 / total
+        if min_score is not None and score < min_score:
+            continue
+        if max_score is not None and score > max_score:
+            continue
+        results.append((trainer, len(decks), total))
+
+    reverse = min_score is not None
+    return sorted(results, key=lambda item: ((-1 if reverse else 1) * item[1] ** 2 / item[2], item[0]))
+
+
 def _players_with_badges_across_tiers(badges, threshold=4):
     """Return players who earned badges across at least `threshold` distinct tiers."""
     tiers_by_player = defaultdict(set)
@@ -183,6 +217,19 @@ TIER_WEIGHTS = {
     'worlds': 5
 }
 TIER_WEIGHT_HELP = [html.Div(f'{k.title()} - {v}pt{"s" if v > 1 else ""}') for k, v in TIER_WEIGHTS.items()]
+
+SEASON_AWARDS_HELP = [
+    html.Div([html.Strong('Most Unique Decks'), html.Span(' — Trainer who earned badges with the most distinct deck archetypes.')], className='mb-1'),
+    html.Div([html.Strong('Most Points'), html.Span(' — Trainer with the highest weighted point total. Tiebreaker for badge count rankings.')], className='mb-1'),
+    html.Div([html.Strong('Most Unique Trainers'), html.Span(' — Deck archetype played by the most distinct trainers.')], className='mb-1'),
+    html.Div([html.Strong('Locked In'), html.Span(' — Trainer who earned 4 or more badges with the same deck.')], className='mb-1'),
+    html.Div([html.Strong('Tier Collector'), html.Span(' — Trainer who earned badges at 4 or more different event tiers.')], className='mb-1'),
+    html.Div([html.Strong('Deck Nomad'), html.Span(' — Trainer with 5+ badges who consistently tries new decks. Scored by unique decks squared divided by total badges — rewards both breadth and variety.')], className='mb-1'),
+    html.Div([html.Strong('Ride or Die'), html.Span(' — Trainer with 5+ badges who sticks to the same deck(s). The lowest diversity scores in the season.')], className='mb-1'),
+    html.Hr(className='my-2'),
+    html.Div('Point values by tier:', className='mb-1'),
+    *TIER_WEIGHT_HELP,
+]
 
 
 def _weighted_leaderboard(badges, key):
@@ -364,6 +411,8 @@ def _season_awards(badges, deck_map=None):
 
     locked_in = _locked_in_players(badges)
     tiers_played = _players_with_badges_across_tiers(badges, threshold=4)
+    deck_nomads = _deck_diversity_players(badges, min_score=3.0)
+    one_tricks = _deck_diversity_players(badges, max_score=1.5)
 
     def _award_col(title, items, use_deck=False, col_md=6, col_lg=3):
         if not items:
@@ -374,11 +423,11 @@ def _season_awards(badges, deck_map=None):
             if use_deck:
                 deck = deck_map.get(name, {'name': name}) if deck_map else {'name': name}
                 label = components.deck_label.create_label(deck)
+            children = [label]
+            if value:
+                children.append(html.Span(f'({value})', className='ms-1'))
             entries.append(
-                html.Div([
-                    label,
-                    html.Span(f'({value})', className='ms-1'),
-                ], className='d-flex justify-content-center align-items-center')
+                html.Div(children, className='d-flex justify-content-center align-items-center')
             )
         return dbc.Col(
             dbc.Card([
@@ -396,7 +445,7 @@ def _season_awards(badges, deck_map=None):
         _award_col(
             'Locked In',
             [
-                (f'{trainer} — {deck_name}', f'{badge_count}')
+                (f'{trainer} — {deck_name} — {badge_count} badges', None)
                 for trainer, _, deck_name, badge_count in locked_in
             ],
             col_md=12,
@@ -405,15 +454,39 @@ def _season_awards(badges, deck_map=None):
         _award_col(
             'Tier Collector',
             [
-                (trainer, f'{tier_count} tiers')
+                (f'{trainer} — {tier_count} tiers', None)
                 for trainer, tier_count in tiers_played
+            ],
+            col_md=12,
+            col_lg=6
+        ),
+        _award_col(
+            'Deck Nomad',
+            [
+                (f'{trainer} — {unique} decks, {total} badges', None)
+                for trainer, unique, total in deck_nomads
+            ],
+            col_md=12,
+            col_lg=6
+        ),
+        _award_col(
+            'Ride or Die',
+            [
+                (f'{trainer} — {unique} decks, {total} badges', None)
+                for trainer, unique, total in one_tricks
             ],
             col_md=12,
             col_lg=6
         ),
     ]
     awards = [a for a in awards if a]
-    return dbc.Row(awards, class_name='mb-4 g-2')
+    return html.Div([
+        html.Div([
+            html.H4('Season Awards', className='d-inline me-1 mb-0'),
+            th_helpers.components.help_icon.create_help_icon('season-awards-help', SEASON_AWARDS_HELP),
+        ], className='d-flex align-items-center mb-2'),
+        dbc.Row(awards, class_name='mb-4 g-2'),
+    ])
 
 
 def _filter_badges(badges, start: datetime.date, end: datetime.date):
