@@ -1,4 +1,5 @@
 badges.jsonl
+src/discord_ids.json
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

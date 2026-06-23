@@ -11,6 +11,7 @@ import components.CustomRadioInputAIO
 import components.deck_label
 import components.layout_access_control
 import util.data
+import util.discord
 
 ROLES = ['admin']
 
@@ -36,6 +37,8 @@ tier_input = f'{inputs_ids}-tier'
 format_input = f'{inputs_ids}-format'
 color_input = f'{inputs_ids}-color'
 background_input = f'{inputs_ids}-background'
+discord_id_input = f'{inputs_ids}-discord-id'
+discord_id_container = f'{inputs_ids}-discord-id-container'
 save = f'{PREFIX}-save'
 edit_select = f'{PREFIX}-edit-select'
 edit_index = f'{PREFIX}-edit-index'
@@ -74,6 +77,12 @@ def layout():
     inputs = dbc.Form([
         dbc.Label('Trainer', html_for=trainer_input),
         components.CustomRadioInputAIO.CustomRadioInputAIO(aio_id=trainer_input, options=list(trainers)),
+
+        html.Div([
+            dbc.Label('Discord ID', html_for=discord_id_input),
+            dbc.Input(id=discord_id_input, placeholder='e.g. 123456789012345678', type='text'),
+            dbc.FormText('Enable Developer Mode in Discord → right-click your username → Copy User ID'),
+        ], id=discord_id_container, style={'display': 'none'}),
 
         dbc.Label('Pronouns', html_for=pronoun_input),
         dcc.Dropdown(id=pronoun_input, options=['their', 'her', 'his'], value='their', clearable=False),
@@ -210,6 +219,19 @@ def _update_save_label(edit_line):
 
 
 @dash_auth.protected_callback(
+    Output(discord_id_container, 'style'),
+    Output(discord_id_input, 'value'),
+    Input(components.CustomRadioInputAIO.CustomRadioInputAIO.ids.dropdown(trainer_input), 'value'),
+    groups=ROLES,
+    prevent_initial_call=True,
+)
+def _toggle_discord_id(trainer):
+    if not trainer or trainer in util.discord._load_discord_ids():
+        return {'display': 'none'}, ''
+    return {'display': 'block'}, ''
+
+
+@dash_auth.protected_callback(
     Output(deck_store, 'data'),
     Input(deck_add, 'n_clicks'),
     State(deck_name, 'value'),
@@ -241,11 +263,12 @@ def _add_deck(n_clicks, name, icons, store):
     State(background_input, 'value'),
     State(tier_input, 'value'),
     State(components.CustomRadioInputAIO.CustomRadioInputAIO.ids.dropdown(format_input), 'value'),
+    State(discord_id_input, 'value'),
     State(edit_index, 'data'),
     groups=ROLES,
     prevent_initial_call=True
 )
-def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks, color, background, tier, format_type, edit_line):
+def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks, color, background, tier, format_type, discord_id, edit_line):
     if not n_clicks:
         raise dash.exceptions.PreventUpdate
 
@@ -264,7 +287,10 @@ def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks, color, 
     if edit_line is not None:
         util.data.update_data(line_index=edit_line, contents=badge)
     else:
+        if discord_id:
+            util.discord.save_discord_id(trainer, discord_id.strip())
         util.data.append_data(contents=badge)
+        util.discord.post_badge(badge)
     return '/'
 
 

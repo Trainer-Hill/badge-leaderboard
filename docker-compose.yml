@@ -11,6 +11,9 @@ services:
       - type: bind
         source: badges.jsonl
         target: /app/src/badges.jsonl
+      - type: bind
+        source: discord_ids.json
+        target: /app/src/discord_ids.json
     healthcheck:
       test: "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"
       interval: 30s
