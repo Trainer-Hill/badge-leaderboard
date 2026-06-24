@@ -14,11 +14,21 @@ def _load_discord_ids():
     try:
         with open(_DISCORD_IDS_FILE, 'r') as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError):
         return {}
 
 
+def _ensure_file():
+    """Replace directory with empty JSON file if Docker created one in place of the missing file."""
+    if os.path.isdir(_DISCORD_IDS_FILE):
+        os.rmdir(_DISCORD_IDS_FILE)
+    if not os.path.exists(_DISCORD_IDS_FILE):
+        with open(_DISCORD_IDS_FILE, 'w') as f:
+            json.dump({}, f)
+
+
 def save_discord_id(trainer, discord_id):
+    _ensure_file()
     ids = _load_discord_ids()
     ids[trainer] = discord_id
     with open(_DISCORD_IDS_FILE, 'w') as f:
