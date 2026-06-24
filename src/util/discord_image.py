@@ -120,18 +120,6 @@ def badge_to_bytes(badge):
 
 
 if __name__ == '__main__':
-    sample = {
-        'trainer': 'Test Trainer',
-        'pronouns': 'their',
-        'deck': {'id': 'charizard', 'name': 'Charizard ex', 'icons': ['charizard']},
-        'store': 'Area Zero TCG',
-        'date': '2025-01-01',
-        'color': '#e25822',
-        'background': 'Fire',
-        'tier': 'League Cup',
-        'format': 'standard',
-    }
-    png = badge_to_bytes(sample)
-    with open('/tmp/test_badge.png', 'wb') as f:
-        f.write(png)
-    print('Saved to /tmp/test_badge.png')
+    import json, sys
+    badge = json.loads(sys.stdin.read())
+    sys.stdout.buffer.write(badge_to_bytes(badge))

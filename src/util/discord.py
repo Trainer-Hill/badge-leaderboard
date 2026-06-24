@@ -21,14 +21,21 @@ def _load_discord_ids():
 def _ensure_file():
     """Replace directory with empty JSON file if Docker created one in place of the missing file."""
     if os.path.isdir(_DISCORD_IDS_FILE):
-        os.rmdir(_DISCORD_IDS_FILE)
+        try:
+            os.rmdir(_DISCORD_IDS_FILE)
+        except OSError as e:
+            logger.warning('Cannot remove discord_ids.json directory (Docker bind mount?): %s', e)
+            return False
     if not os.path.exists(_DISCORD_IDS_FILE):
         with open(_DISCORD_IDS_FILE, 'w') as f:
             json.dump({}, f)
+    return True
 
 
 def save_discord_id(trainer, discord_id):
-    _ensure_file()
+    if not _ensure_file():
+        logger.warning('Skipping Discord ID save for %s: file not writable', trainer)
+        return
     ids = _load_discord_ids()
     ids[trainer] = discord_id
     with open(_DISCORD_IDS_FILE, 'w') as f:
@@ -50,8 +57,19 @@ def post_badge(badge):
 
     image_bytes = None
     try:
-        from util.discord_image import badge_to_bytes
-        image_bytes = badge_to_bytes(badge)
+        import subprocess, sys
+        src_dir = os.path.dirname(os.path.dirname(__file__))
+        result = subprocess.run(
+            [sys.executable, '-m', 'util.discord_image'],
+            input=json.dumps(badge, default=str).encode(),
+            capture_output=True,
+            timeout=30,
+            cwd=src_dir,
+        )
+        if result.returncode == 0:
+            image_bytes = result.stdout
+        else:
+            logger.warning('Badge image process failed: %s', result.stderr.decode())
     except Exception as e:
         logger.warning('Failed to generate badge image: %s', e)
 
