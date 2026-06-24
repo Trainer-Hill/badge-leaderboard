@@ -32,12 +32,6 @@ def _mention(trainer):
     return trainer
 
 
-def _color_int(hex_color):
-    try:
-        return int((hex_color or '#ffffff').lstrip('#'), 16)
-    except ValueError:
-        return 0xffffff
-
 
 def post_badge(badge):
     """Post a new badge announcement to Discord via webhook."""
@@ -52,22 +46,18 @@ def post_badge(badge):
         logger.warning('Failed to generate badge image: %s', e)
 
     mention = _mention(badge.get('trainer', 'Someone'))
-    embed = {
-        'description': f'Congrats to {mention} on earning their badge!',
-        'color': _color_int(badge.get('color')),
-    }
+    payload = {'content': f'Congrats to {mention} on earning their badge!'}
 
     try:
         if image_bytes:
-            embed['image'] = {'url': 'attachment://badge.png'}
             requests.post(
                 _WEBHOOK_URL,
-                data={'payload_json': json.dumps({'embeds': [embed]})},
+                data={'payload_json': json.dumps(payload)},
                 files={'file': ('badge.png', image_bytes, 'image/png')},
                 timeout=10,
             )
         else:
-            requests.post(_WEBHOOK_URL, json={'embeds': [embed]}, timeout=10)
+            requests.post(_WEBHOOK_URL, json=payload, timeout=10)
     except Exception as e:
         logger.error('Failed to post badge to Discord: %s', e)
 
