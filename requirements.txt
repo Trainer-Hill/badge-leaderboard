@@ -3,7 +3,7 @@ dash-bootstrap-components
 dash-auth
 gevent
 gunicorn
-imgkit
+playwright
 python-dotenv
 requests
 th-helpers>=0.1.21

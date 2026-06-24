@@ -105,19 +105,18 @@ def _build_badge_html(badge):
 
 
 def badge_to_bytes(badge):
-    """Render badge via wkhtmltoimage, return PNG bytes."""
-    import imgkit
+    """Render badge HTML to PNG bytes via headless Chromium (Playwright)."""
+    from playwright.sync_api import sync_playwright
 
     html = _build_badge_html(badge)
-    options = {
-        'format': 'png',
-        'width': 816,
-        'zoom': 1,
-        'disable-smart-width': '',
-        'enable-local-file-access': '',
-        'quiet': '',
-    }
-    return imgkit.from_string(html, False, options=options)
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={'width': 816, 'height': 600})
+        page.set_content(html, wait_until='networkidle')
+        card = page.locator('.card')
+        png = card.screenshot()
+        browser.close()
+    return png
 
 
 if __name__ == '__main__':
