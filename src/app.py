@@ -147,5 +147,23 @@ def check_health():
     return 'ok', 200
 
 
+@server.get('/api/export-badges')
+def export_badges():
+    from util.data import FILENAME
+    from flask import Response
+    try:
+        with open(FILENAME, 'rb') as f:
+            data = f.read()
+    except OSError:
+        return 'File not found', 404
+
+    basename = os.path.basename(FILENAME)
+    return Response(
+        data,
+        mimetype='application/x-ndjson',
+        headers={'Content-Disposition': f'attachment; filename="{basename}"'},
+    )
+
+
 if __name__ == '__main__':
     app.run(debug=not IS_PROD, host='0.0.0.0', port=8080)
