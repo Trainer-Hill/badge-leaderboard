@@ -1,8 +1,9 @@
 import dash
 import dash_bootstrap_components as dbc
 import datetime
+import statistics
 from collections import Counter, defaultdict
-from dash import html, callback, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
+from dash import html, dcc, callback, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
 
 import th_helpers.components.help_icon
 import components.badge
@@ -187,6 +188,33 @@ def _deck_diversity_players(badges, min_badges=5, min_score=None, max_score=None
 
     reverse = min_score is not None
     return sorted(results, key=lambda item: ((-1 if reverse else 1) * item[1] ** 2 / item[2], item[0]))
+
+
+def _deck_diversity_all(badges, min_badges=3):
+    """Return all (trainer, score) sorted high→low for trainers with at least min_badges."""
+    decks_by_player = defaultdict(set)
+    total_by_player = Counter()
+    for b in badges:
+        trainer = b.get('trainer')
+        deck = b.get('deck')
+        if not trainer or not deck:
+            continue
+        deck_id = deck.get('id') or deck.get('name') if isinstance(deck, dict) else deck
+        if not deck_id:
+            continue
+        decks_by_player[trainer].add(deck_id)
+        total_by_player[trainer] += 1
+
+    results = sorted(
+        [
+            (trainer, len(decks) ** 2 / total_by_player[trainer])
+            for trainer, decks in decks_by_player.items()
+            if total_by_player[trainer] >= min_badges
+        ],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    return results, min_badges
 
 
 def _players_with_badges_across_tiers(badges, threshold=4):
@@ -392,6 +420,26 @@ def _totals_badges(badges):
     )
 
 
+def _avg_points_per_badge(badges, min_badges=3):
+    """Return list of (trainer, avg_pts) sorted high→low, for trainers with at least min_badges."""
+    counts = Counter()
+    weights = Counter()
+    for b in badges:
+        trainer = b.get('trainer')
+        if not trainer:
+            continue
+        counts[trainer] += 1
+        tier = (b.get('tier') or '').lower()
+        weights[trainer] += TIER_WEIGHTS.get(tier, 0)
+
+    avgs = sorted(
+        [(trainer, weights[trainer] / counts[trainer]) for trainer in counts if counts[trainer] >= min_badges],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    return avgs, min_badges
+
+
 def _season_awards(badges, deck_map=None):
     """Return award badges for season-wide stats."""
     trainer_unique = _most_unique(badges, 'trainer', 'deck')
@@ -411,8 +459,8 @@ def _season_awards(badges, deck_map=None):
 
     locked_in = _locked_in_players(badges)
     tiers_played = _players_with_badges_across_tiers(badges, threshold=4)
-    deck_nomads = _deck_diversity_players(badges, min_score=3.0)
-    one_tricks = _deck_diversity_players(badges, max_score=1.5)
+    diversity_sorted, diversity_min_badges = _deck_diversity_all(badges)
+    avg_sorted, avg_min_badges = _avg_points_per_badge(badges)
 
     def _award_col(title, items, use_deck=False, col_md=6, col_lg=3):
         if not items:
@@ -460,25 +508,113 @@ def _season_awards(badges, deck_map=None):
             col_md=12,
             col_lg=6
         ),
-        _award_col(
-            'Deck Nomad',
-            [
-                (f'{trainer} — {unique} decks, {total} badges', None)
-                for trainer, unique, total in deck_nomads
-            ],
-            col_md=12,
-            col_lg=6
-        ),
-        _award_col(
-            'Ride or Die',
-            [
-                (f'{trainer} — {unique} decks, {total} badges', None)
-                for trainer, unique, total in one_tricks
-            ],
-            col_md=12,
-            col_lg=6
-        ),
     ]
+
+    if diversity_sorted:
+        N = 5
+        div_top = diversity_sorted[:N]
+        div_bot = diversity_sorted[-N:][::-1]
+        div_vals = [s for _, s in diversity_sorted]
+
+        div_mean = statistics.mean(div_vals)
+        div_median = statistics.median(div_vals)
+
+        def _div_rank_rows(items):
+            return [
+                html.Div([
+                    html.Span(f'{i+1}.', className='text-muted me-1 small'),
+                    html.Span(name),
+                    html.Span(f'{score:.2f}', className='ms-auto small fw-bold text-primary'),
+                ], className='d-flex align-items-center px-1')
+                for i, (name, score) in enumerate(items)
+            ]
+
+        diversity_card = dbc.Col(
+            dbc.Card([
+                dbc.CardHeader('Deck Diversity Score', class_name='text-center'),
+                dbc.CardBody([
+                    dbc.Row([
+                        dbc.Col(html.Div([
+                            html.Div('Mean', className='small text-muted'),
+                            html.Span(f'{div_mean:.2f}', className='fw-bold'),
+                        ], className='text-center'), xs=4),
+                        dbc.Col(html.Div([
+                            html.Div('Median', className='small text-muted'),
+                            html.Span(f'{div_median:.2f}', className='fw-bold'),
+                        ], className='text-center'), xs=4),
+                        dbc.Col(html.Div([
+                            html.Div('Min Badges', className='small text-muted'),
+                            html.Span(diversity_min_badges, className='fw-bold'),
+                        ], className='text-center'), xs=4),
+                    ], className='mb-3'),
+                    dbc.Row([
+                        dbc.Col([
+                            html.Div('Deck Nomad', className='fw-bold small text-muted text-center mb-1'),
+                            *_div_rank_rows(div_top),
+                        ], xs=6),
+                        dbc.Col([
+                            html.Div('Ride or Die', className='fw-bold small text-muted text-center mb-1'),
+                            *_div_rank_rows(div_bot),
+                        ], xs=6),
+                    ]),
+                ])
+            ], class_name='mb-2'),
+            md=12, lg=6
+        )
+        awards.append(diversity_card)
+
+    if avg_sorted:
+        N = 5
+        top_n = avg_sorted[:N]
+        bot_n = avg_sorted[-N:][::-1]
+        avg_vals = [a for _, a in avg_sorted]
+
+        mean = statistics.mean(avg_vals)
+        median = statistics.median(avg_vals)
+
+        def _rank_rows(items, label_cls=''):
+            return [
+                html.Div([
+                    html.Span(f'{i+1}.', className='text-muted me-1 small'),
+                    html.Span(name),
+                    html.Span(f'{avg:.2f}', className=f'ms-auto small fw-bold {label_cls}'),
+                ], className='d-flex align-items-center px-1')
+                for i, (name, avg) in enumerate(items)
+            ]
+
+        avg_card = dbc.Col(
+            dbc.Card([
+                dbc.CardHeader('Avg Points / Badge', class_name='text-center'),
+                dbc.CardBody([
+                    dbc.Row([
+                        dbc.Col(html.Div([
+                            html.Div('Mean', className='small text-muted'),
+                            html.Span(f'{mean:.2f}', className='fw-bold'),
+                        ], className='text-center'), xs=4),
+                        dbc.Col(html.Div([
+                            html.Div('Median', className='small text-muted'),
+                            html.Span(f'{median:.2f}', className='fw-bold'),
+                        ], className='text-center'), xs=4),
+                        dbc.Col(html.Div([
+                            html.Div('Min Badges', className='small text-muted'),
+                            html.Span(avg_min_badges, className='fw-bold'),
+                        ], className='text-center'), xs=4),
+                    ], className='mb-3'),
+                    dbc.Row([
+                        dbc.Col([
+                            html.Div('Regional Raider', className='fw-bold small text-muted text-center mb-1'),
+                            *_rank_rows(top_n, 'text-primary'),
+                        ], xs=6),
+                        dbc.Col([
+                            html.Div('Local Legend', className='fw-bold small text-muted text-center mb-1'),
+                            *_rank_rows(bot_n, 'text-primary'),
+                        ], xs=6),
+                    ]),
+                ])
+            ], class_name='mb-2'),
+            md=12, lg=6
+        )
+        awards.append(avg_card)
     awards = [a for a in awards if a]
     return html.Div([
         html.Div([
