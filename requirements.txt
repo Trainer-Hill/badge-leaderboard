@@ -6,4 +6,4 @@ gunicorn
 playwright
 python-dotenv
 requests
-th-helpers>=0.1.21
+th-helpers>=0.1.22
