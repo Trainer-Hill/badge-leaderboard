@@ -9,8 +9,7 @@ import th_helpers.components.help_icon
 import components.badge
 import components.deck_label
 import util.data
-# TODO badge information
-# import util.badges
+import util.leaderboard
 
 dash.register_page(
     __name__,
@@ -73,18 +72,6 @@ def _create_deck_map(badges):
             if name and name not in deck_map:
                 deck_map[name] = deck
     return deck_map
-
-
-def _count_leaderboard(badges, key):
-    counter = Counter()
-    for b in badges:
-        value = b.get(key)
-        if not value:
-            continue
-        if isinstance(value, dict):
-            value = value.get('name') or value.get('id')
-        counter[value] += 1
-    return counter
 
 
 def _summarize_badges(badges, primary_key, secondary_key):
@@ -156,67 +143,6 @@ def _locked_in_players(badges, threshold=4):
     )
 
 
-def _deck_diversity_players(badges, min_badges=5, min_score=None, max_score=None):
-    """Return players filtered by unique²/total score. Score rewards breadth and penalizes repeats.
-
-    Pass min_score to get the most diverse (Deck Nomad), max_score for the least (One Trick).
-    """
-    decks_by_player = defaultdict(set)
-    total_by_player = Counter()
-    for b in badges:
-        trainer = b.get('trainer')
-        deck = b.get('deck')
-        if not trainer or not deck:
-            continue
-        deck_id = deck.get('id') or deck.get('name') if isinstance(deck, dict) else deck
-        if not deck_id:
-            continue
-        decks_by_player[trainer].add(deck_id)
-        total_by_player[trainer] += 1
-
-    results = []
-    for trainer, decks in decks_by_player.items():
-        total = total_by_player[trainer]
-        if total < min_badges:
-            continue
-        score = len(decks) ** 2 / total
-        if min_score is not None and score < min_score:
-            continue
-        if max_score is not None and score > max_score:
-            continue
-        results.append((trainer, len(decks), total))
-
-    reverse = min_score is not None
-    return sorted(results, key=lambda item: ((-1 if reverse else 1) * item[1] ** 2 / item[2], item[0]))
-
-
-def _deck_diversity_all(badges, min_badges=3):
-    """Return all (trainer, score) sorted high→low for trainers with at least min_badges."""
-    decks_by_player = defaultdict(set)
-    total_by_player = Counter()
-    for b in badges:
-        trainer = b.get('trainer')
-        deck = b.get('deck')
-        if not trainer or not deck:
-            continue
-        deck_id = deck.get('id') or deck.get('name') if isinstance(deck, dict) else deck
-        if not deck_id:
-            continue
-        decks_by_player[trainer].add(deck_id)
-        total_by_player[trainer] += 1
-
-    results = sorted(
-        [
-            (trainer, len(decks) ** 2 / total_by_player[trainer])
-            for trainer, decks in decks_by_player.items()
-            if total_by_player[trainer] >= min_badges
-        ],
-        key=lambda x: x[1],
-        reverse=True,
-    )
-    return results, min_badges
-
-
 def _players_with_badges_across_tiers(badges, threshold=4):
     """Return players who earned badges across at least `threshold` distinct tiers."""
     tiers_by_player = defaultdict(set)
@@ -235,16 +161,7 @@ def _players_with_badges_across_tiers(badges, threshold=4):
     return sorted(qualified_players, key=lambda item: (-item[1], item[0]))
 
 
-TIER_WEIGHTS = {
-    'locals': 1,
-    'online': 1,
-    'league challenge': 2,
-    'league cup': 3,
-    'regionals': 5,
-    'internationals': 5,
-    'worlds': 5
-}
-TIER_WEIGHT_HELP = [html.Div(f'{k.title()} - {v}pt{"s" if v > 1 else ""}') for k, v in TIER_WEIGHTS.items()]
+TIER_WEIGHT_HELP = [html.Div(f'{k.title()} - {v}pt{"s" if v > 1 else ""}') for k, v in util.leaderboard.TIER_WEIGHTS.items()]
 
 SEASON_AWARDS_HELP = [
     html.Div([html.Strong('Most Unique Decks'), html.Span(' — Trainer who earned badges with the most distinct deck archetypes.')], className='mb-1'),
@@ -258,32 +175,6 @@ SEASON_AWARDS_HELP = [
     html.Div('Point values by tier:', className='mb-1'),
     *TIER_WEIGHT_HELP,
 ]
-
-
-def _weighted_leaderboard(badges, key):
-    """Return sorted leaderboard accounting for tier weights, including counts and weights."""
-    counts = Counter()
-    weights = Counter()
-    for b in badges:
-        value = b.get(key)
-        if not value:
-            continue
-        if isinstance(value, dict):
-            value = value.get('name') or value.get('id')
-        counts[value] += 1
-        tier = (b.get('tier') or '').lower()
-        weights[value] += TIER_WEIGHTS.get(tier, 0)
-
-    leaderboard = [
-        (value, counts[value], weights[value])
-        for value in counts
-    ]
-
-    return sorted(
-        leaderboard,
-        key=lambda item: (item[1], item[2]),
-        reverse=True
-    )
 
 
 def _format_detail_list(details, use_deck_label=False, deck_map=None):
@@ -352,8 +243,8 @@ def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False
 
 def _leaderboard_section(badges, label, prefix, deck_map=None):
     """Return the basic leaderboard section with trainer and deck tables."""
-    trainer_lb = _weighted_leaderboard(badges, 'trainer')[:10]
-    deck_lb = _weighted_leaderboard(badges, 'deck')[:10]
+    trainer_lb = util.leaderboard.weighted_leaderboard(badges, 'trainer')[:10]
+    deck_lb = util.leaderboard.weighted_leaderboard(badges, 'deck')[:10]
 
     trainer_summary = _summarize_badges(badges, 'trainer', 'deck')
     deck_summary = _summarize_badges(badges, 'deck', 'trainer')
@@ -420,38 +311,18 @@ def _totals_badges(badges):
     )
 
 
-def _avg_points_per_badge(badges, min_badges=3):
-    """Return list of (trainer, avg_pts) sorted high→low, for trainers with at least min_badges."""
-    counts = Counter()
-    weights = Counter()
-    for b in badges:
-        trainer = b.get('trainer')
-        if not trainer:
-            continue
-        counts[trainer] += 1
-        tier = (b.get('tier') or '').lower()
-        weights[trainer] += TIER_WEIGHTS.get(tier, 0)
-
-    avgs = sorted(
-        [(trainer, weights[trainer] / counts[trainer]) for trainer in counts if counts[trainer] >= min_badges],
-        key=lambda x: x[1],
-        reverse=True,
-    )
-    return avgs, min_badges
-
-
 def _season_awards(badges, deck_map=None):
     """Return award badges for season-wide stats."""
     trainer_unique = _most_unique(badges, 'trainer', 'deck')
     deck_unique = _most_unique(badges, 'deck', 'trainer')
 
-    trainer_lb = _weighted_leaderboard(badges, 'trainer')
+    trainer_lb = util.leaderboard.weighted_leaderboard(badges, 'trainer')
     trainer_points = []
     if trainer_lb:
         max_tp = max(item[2] for item in trainer_lb)
         trainer_points = [(name, f'{pts} pts') for name, _, pts in trainer_lb if pts == max_tp]
 
-    deck_lb = _weighted_leaderboard(badges, 'deck')
+    deck_lb = util.leaderboard.weighted_leaderboard(badges, 'deck')
     deck_points = []
     if deck_lb:
         max_dp = max(item[2] for item in deck_lb)
@@ -459,8 +330,23 @@ def _season_awards(badges, deck_map=None):
 
     locked_in = _locked_in_players(badges)
     tiers_played = _players_with_badges_across_tiers(badges, threshold=4)
-    diversity_sorted, diversity_min_badges = _deck_diversity_all(badges)
-    avg_sorted, avg_min_badges = _avg_points_per_badge(badges)
+
+    EXTRAS_MIN_BADGES = 3
+    count_map = {name: count for name, count, _ in trainer_lb}
+    extras = util.leaderboard.trainer_extras(badges)
+
+    diversity_min_badges = EXTRAS_MIN_BADGES
+    diversity_sorted = sorted(
+        [(t, div) for t, (_, div) in extras.items() if count_map.get(t, 0) >= EXTRAS_MIN_BADGES],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    avg_min_badges = EXTRAS_MIN_BADGES
+    avg_sorted = sorted(
+        [(t, avg) for t, (avg, _) in extras.items() if count_map.get(t, 0) >= EXTRAS_MIN_BADGES],
+        key=lambda x: x[1],
+        reverse=True,
+    )
 
     def _award_col(title, items, use_deck=False, col_md=6, col_lg=3):
         if not items:

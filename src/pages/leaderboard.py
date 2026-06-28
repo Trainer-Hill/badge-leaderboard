@@ -62,7 +62,9 @@ def _format_detail_list(details, use_deck_label=False, deck_map=None):
     return html.Ul(items, className='mb-0 list-unstyled')
 
 
-def _leaderboard_table(title, data, summaries, row_type, deck_rows=False, deck_map=None):
+def _leaderboard_table(title, data, summaries, row_type, deck_rows=False, deck_map=None, extras=None):
+    show_extras = extras is not None and not deck_rows
+    col_span = 6 if show_extras else 4
     rows = []
     prev_score = None
     rank = 0
@@ -89,26 +91,39 @@ def _leaderboard_table(title, data, summaries, row_type, deck_rows=False, deck_m
             html.I(className=f'fas fa-{_RANK_ICONS[rank]}', title=f'Rank {rank}')
             if rank in _RANK_ICONS else rank
         )
-        rows.append(html.Tr([
+        cells = [
             html.Td(rank_display, className='text-center align-middle w-0 text-dark'),
             html.Td(html.A(label, id=toggle_id, n_clicks=0), className='align-middle deck'),
             html.Td(count, className='text-center align-middle'),
             html.Td(points, className='text-center align-middle'),
-        ]))
+        ]
+        if show_extras:
+            avg, diversity = extras.get(name, (0.0, 0.0))
+            cells += [
+                html.Td(f'{avg:.2f}', className='text-center align-middle'),
+                html.Td(f'{diversity:.2f}', className='text-center align-middle'),
+            ]
+        rows.append(html.Tr(cells))
         detail = _format_detail_list(
             summaries.get(name, {}),
             use_deck_label=not deck_rows,
             deck_map=deck_map,
         )
         rows.append(html.Tr([
-            html.Td(dbc.Collapse(detail, id=collapse_id, is_open=False), colSpan=4, className='p-0')
+            html.Td(dbc.Collapse(detail, id=collapse_id, is_open=False), colSpan=col_span, className='p-0')
         ], className='tr-collapse'))
+
+    extra_headers = [
+        html.Td('Avg Pts', className='w-0'),
+        html.Td('Diversity', className='w-0'),
+    ] if show_extras else []
 
     return dbc.Table([
         html.Thead(html.Tr([
             html.Th(title, colSpan=2),
             html.Td('Badges', className='w-0'),
             html.Td('Points', className='w-0'),
+            *extra_headers,
         ])),
         html.Tbody(rows),
     ], bordered=True, size='sm', class_name='mb-2 leaderboard', responsive=True)
@@ -127,9 +142,10 @@ def _rankings_section(badges):
     deck_lb = util.leaderboard.weighted_leaderboard(badges, 'deck')
     trainer_summary = _summarize_badges(badges, 'trainer', 'deck')
     deck_summary = _summarize_badges(badges, 'deck', 'trainer')
+    extras = util.leaderboard.trainer_extras(badges)
     return dbc.Row([
         dbc.Col(
-            _leaderboard_table('Trainer', trainer_lb, trainer_summary, 'trainer', deck_map=deck_map),
+            _leaderboard_table('Trainer', trainer_lb, trainer_summary, 'trainer', deck_map=deck_map, extras=extras),
             md=6,
         ),
         dbc.Col(

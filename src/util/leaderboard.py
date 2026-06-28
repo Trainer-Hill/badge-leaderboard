@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections import Counter
-from typing import List, Sequence, Tuple
+from collections import Counter, defaultdict
+from typing import Dict, List, Sequence, Tuple
 
 # Badge tiers mapped to their point values. These points are used as a tie breaker
 # when players have the same number of badges.
@@ -55,4 +55,49 @@ def weighted_leaderboard(badges: Sequence[dict], key: str) -> List[Tuple[str, in
     return leaderboard
 
 
-__all__ = ['TIER_WEIGHTS', 'normalize_value', 'badge_points', 'weighted_leaderboard']
+def _collect_trainer_stats(badges: Sequence[dict]):
+    """Single-pass accumulator returning (counts, points, decks_by_trainer)."""
+    counts: Counter = Counter()
+    points: Counter = Counter()
+    decks: defaultdict = defaultdict(set)
+    for b in badges:
+        trainer = b.get('trainer')
+        if not trainer:
+            continue
+        counts[trainer] += 1
+        points[trainer] += badge_points(b)
+        deck = b.get('deck')
+        deck_id = deck.get('id') or deck.get('name') if isinstance(deck, dict) else deck
+        if deck_id:
+            decks[trainer].add(deck_id)
+    return counts, points, decks
+
+
+def avg_points_per_badge(badges: Sequence[dict]) -> Dict[str, float]:
+    """Return per-trainer average points per badge."""
+    counts, points, _ = _collect_trainer_stats(badges)
+    return {t: points[t] / counts[t] for t in counts}
+
+
+def deck_diversity_score(badges: Sequence[dict]) -> Dict[str, float]:
+    """Return per-trainer deck diversity score (unique_decks² / total_badges).
+
+    Rewards breadth and penalizes playing the same deck repeatedly.
+    """
+    counts, _, decks = _collect_trainer_stats(badges)
+    return {t: len(decks[t]) ** 2 / counts[t] for t in counts}
+
+
+def trainer_extras(badges: Sequence[dict]) -> Dict[str, Tuple[float, float]]:
+    """Return per-trainer (avg_pts_per_badge, deck_diversity_score) in one pass."""
+    counts, points, decks = _collect_trainer_stats(badges)
+    return {
+        t: (points[t] / counts[t], len(decks[t]) ** 2 / counts[t])
+        for t in counts
+    }
+
+
+__all__ = [
+    'TIER_WEIGHTS', 'normalize_value', 'badge_points', 'weighted_leaderboard',
+    'avg_points_per_badge', 'deck_diversity_score', 'trainer_extras',
+]
