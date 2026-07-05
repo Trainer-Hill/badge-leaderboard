@@ -8,6 +8,7 @@ from dash import html, dcc, callback, clientside_callback, ClientsideFunction, O
 import th_helpers.components.help_icon
 import components.badge
 import components.deck_label
+import components.event_card
 import util.data
 import util.leaderboard
 import util.seasons
@@ -523,32 +524,28 @@ def _next_month(date: datetime.date) -> datetime.date:
 
 
 def layout(season=None, **kwargs):
-    badges = _parse_badges()
+    scope = util.seasons.resolve_scope(season)
+    badges = util.seasons.read_badges(scope)
+
+    events = util.seasons.read_events(scope)
+    event_cols = [
+        dbc.Col(
+            components.event_card.create_event_card(e, i),
+            xs=12, md=8, lg=6, xl=6,
+            class_name='bg-transparent',
+        )
+        for i, e in enumerate(events[:10])
+    ]
 
     recent_components = [
         components.badge.create_badge_component(b, i)
         for i, b in enumerate(badges[:10])
     ]
 
-    seasons = sorted({
-        _season_start(b['date']).year + 1
-        for b in badges if b.get('date')
-    }, reverse=True)
-
     badge_cols = [
         dbc.Col(rc, xs=12, md=6, xl=4, class_name='bg-transparent')
         for i, rc in enumerate(recent_components)
     ]
-
-    season_tabs = [
-        dbc.Tab(label=f'{s} Season', tab_id=str(s), active_tab_style={'fontWeight': 'bold'})
-        for s in seasons
-    ]
-
-    requested_season = util.seasons.resolve_season(season)
-    active_season = str(requested_season) if requested_season in seasons else (
-        str(seasons[0]) if seasons else None
-    )
 
     demo_section = [
         html.Br(),
@@ -575,6 +572,11 @@ def layout(season=None, **kwargs):
             dbc.Button('View Rules', href='/rules', color='secondary')
         ], className='d-flex gap-1 flex-wrap'),
         html.Div([
+            html.H2('Recent Events', className='my-1'),
+            html.P('Latest event finishes — earners are marked with a check.'),
+            dbc.Row(event_cols, class_name='overflow-auto flex-nowrap align-items-start mb-2 pb-3'),
+        ]) if event_cols else None,
+        html.Div([
             html.H2('Recent Badges', className='d-flex mb-0'),
             dbc.Button(html.I(className='fas fa-download'), title='Download recent badge', id='download'),
             dbc.Input(value='recent-0', class_name='d-none', id='recent')
@@ -583,57 +585,49 @@ def layout(season=None, **kwargs):
         dbc.Row(badge_cols, class_name='overflow-auto flex-nowrap mb-2 pb-3'),
         html.H2('Leaderboards'),
         html.Div([
-            'Jump to:',
-            html.A('Season', href='#season', className='mx-2'),
-            '/',
-            html.A('Quarter', href='#quarter', className='mx-2'),
-            '/',
-            html.A('Month', href='#month', className='mx-2')
-        ], className='mb-1'),
-        html.Div([
-            'View the top badge earners by season, quarter, and month. Ranked by total badges. Tiebreakers are determined based on points earned.',
+            'View the top badge earners for ',
+            html.Strong(util.seasons.season_label(scope)),
+            '. Ranked by total badges. Tiebreakers are determined based on points earned.',
             th_helpers.components.help_icon.create_help_icon('points-help', TIER_WEIGHT_HELP, 'ms-1')
         ]),
         html.P('Click a trainer or deck name to see the badges they have earned.'),
-        html.H3('Season', id='season'),
-        dbc.Tabs(season_tabs, id='season-tabs', active_tab=active_season),
-        html.Div(id='season-content'),
+        _season_content(scope, badges),
     ], fluid=True)
 
 
-@callback(
-    Output('season-content', 'children'),
-    Input('season-tabs', 'active_tab'),
-)
-def render_season(active_season):
-    if not active_season:
-        return dash.no_update
-    badges = _parse_badges()
-    deck_map = _create_deck_map(badges)
-    season_year = int(active_season)
-    season_start = datetime.date(season_year-1, 7, 1)
-    season_end = datetime.date(season_start.year+1, 7, 1)
-    season_badges = _filter_badges(badges, season_start, season_end)
-    quarter_starts = sorted({
-        _quarter_start(b['date'])
-        for b in season_badges if b.get('date')
-    }, reverse=True)
-    quarter_tabs = [
-        dbc.Tab(label=_quarter_label(qs), tab_id=qs.isoformat(), active_tab_style={'fontWeight': 'bold'})
-        for qs in quarter_starts
-    ]
-    return html.Div([
+def _season_content(scope, season_badges):
+    """Render the leaderboard section for the selected season scope.
+
+    Quarter/month drill-down is season-specific, so it is only shown when a
+    concrete season is selected (not the all-time "Overall" view).
+    """
+    deck_map = _create_deck_map(season_badges)
+    label = util.seasons.season_label(scope)
+    children = [
         _totals_badges(season_badges),
-        _leaderboard_section(season_badges, f'{season_year} Season', f'season-{season_year}', deck_map=deck_map),
+        _leaderboard_section(season_badges, label, f'season-{scope}', deck_map=deck_map),
         _season_awards(season_badges, deck_map=deck_map),
-        html.H3('Quarter', id='quarter'),
-        dbc.Tabs(
-            quarter_tabs,
-            id={'type': 'quarter-tabs', 'index': season_year},
-            active_tab=quarter_tabs[0].tab_id if quarter_tabs else None
-        ),
-        html.Div(id={'type': 'quarter-content', 'index': season_year})
-    ])
+    ]
+    if scope != util.seasons.OVERALL:
+        season_year = scope
+        quarter_starts = sorted({
+            _quarter_start(b['date'])
+            for b in season_badges if b.get('date')
+        }, reverse=True)
+        quarter_tabs = [
+            dbc.Tab(label=_quarter_label(qs), tab_id=qs.isoformat(), active_tab_style={'fontWeight': 'bold'})
+            for qs in quarter_starts
+        ]
+        children += [
+            html.H3('Quarter', id='quarter'),
+            dbc.Tabs(
+                quarter_tabs,
+                id={'type': 'quarter-tabs', 'index': season_year},
+                active_tab=quarter_tabs[0].tab_id if quarter_tabs else None
+            ),
+            html.Div(id={'type': 'quarter-content', 'index': season_year}),
+        ]
+    return html.Div(children)
 
 
 @callback(

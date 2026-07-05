@@ -37,6 +37,11 @@ SEASONS = {
         'rules': '2026.md',
         'data_file': None,
     },
+    2027: {
+        'mode': 'events',
+        'rules': '2026.md',  # TODO: add rules/2027.md when the ruleset is finalized
+        'data_file': 'events_2027.jsonl',
+    },
 }
 
 # Config used when a season year is requested but not declared above.
@@ -96,8 +101,22 @@ def season_label(value) -> str:
     return f'{resolve_season(value)} Season'
 
 
+def season_has_data(season_year: int) -> bool:
+    """Return True if a season has any recorded data (events or badges)."""
+    if mode_for(season_year) == 'events':
+        return bool(read_events(season_year))
+    return bool(read_badges(season_year))
+
+
 def current_season() -> int:
-    """Return the latest configured season year."""
+    """Return the latest season that has data, so the site defaults to the
+    active season rather than a newly-configured-but-empty one.
+
+    Falls back to the latest configured season (then the calendar season).
+    """
+    for year in available_seasons():  # newest first
+        if season_has_data(year):
+            return year
     return max(SEASONS) if SEASONS else season_year_for_date(datetime.date.today())
 
 
@@ -197,3 +216,23 @@ def read_badges(season: Optional[int] = None) -> List[dict]:
         start, end = season_bounds(season_year)
         badges = [b for b in badges if b.get('date') and start <= b['date'] < end]
     return _sort_badges(badges)
+
+
+def read_events(season: Optional[int] = None) -> List[dict]:
+    """Return raw event records (with standings) for events-mode seasons.
+
+    Powers the home recap card and the event admin flow. Badges-mode seasons
+    have no events, so they contribute nothing. With ``OVERALL``/``None`` this
+    unions events across every events-mode season.
+    """
+    if is_overall(season):
+        events: List[dict] = []
+        for year in SEASONS:
+            if mode_for(year) == 'events':
+                events.extend(util.data.read_data_from_file(data_file_for(year)))
+        return _sort_badges(events)
+
+    season_year = resolve_season(season)
+    if mode_for(season_year) != 'events':
+        return []
+    return util.data.read_data_from_file(data_file_for(season_year))

@@ -28,7 +28,8 @@ class CustomRadioInputAIO(html.Div):
     def __init__(
         self,
         options=None,
-        aio_id=None
+        aio_id=None,
+        value=None
     ):
         if aio_id is None:
             aio_id = str(uuid.uuid4())
@@ -37,7 +38,7 @@ class CustomRadioInputAIO(html.Div):
             options = []
 
         component = [
-            dcc.Dropdown(options=options, id=self.ids.dropdown(aio_id)),
+            dcc.Dropdown(options=options, value=value, id=self.ids.dropdown(aio_id)),
             dbc.InputGroup([
                 dbc.Input(id=self.ids.input(aio_id), placeholder='Enter custom name', value=''),
                 dbc.Button(html.I(className='fas fa-plus'), id=self.ids.add(aio_id), disabled=True)

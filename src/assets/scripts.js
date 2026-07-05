@@ -85,6 +85,10 @@ window.dash_clientside.clientside = {
     return false;
   },
 
+  toggleBadgeFields: function (earned) {
+    return earned ? {} : { display: 'none' };
+  },
+
   disableDeckAdd: function(name, icons, store) {
     if (!name || !icons || icons.length === 0) {
       return true;

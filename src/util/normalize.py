@@ -20,8 +20,9 @@ from typing import List, Tuple
 # Fields we expect on a badge. Missing ones are logged, not fatal.
 _EXPECTED_BADGE_FIELDS = ('trainer', 'deck', 'date', 'tier')
 
-# Event-level fields copied onto each derived badge.
-_EVENT_FIELDS = ('store', 'date', 'tier', 'format', 'background')
+# Event-level fields copied onto each derived badge. Color/background are set
+# per badge earner (standing-level), so they are NOT event-level.
+_EVENT_FIELDS = ('store', 'date', 'tier', 'format')
 
 
 def _record_label(record: dict) -> str:
