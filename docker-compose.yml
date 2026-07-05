@@ -7,13 +7,14 @@ services:
       - proxied
     environment:
       - FLASK_ENV=production
+      # All JSONL/JSON data lives in this bind-mounted directory. Files inside
+      # (badges.jsonl, events_2027.jsonl, discord_ids.json, ...) are created by
+      # the app on demand -- they don't need to pre-exist.
+      - TH_BL_DATA_DIR=/app/data
     volumes:
       - type: bind
-        source: badges.jsonl
-        target: /app/src/badges.jsonl
-      - type: bind
-        source: discord_ids.json
-        target: /app/src/discord_ids.json
+        source: ./data
+        target: /app/data
     healthcheck:
       test: "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"
       interval: 30s

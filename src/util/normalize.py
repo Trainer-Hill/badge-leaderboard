@@ -21,8 +21,9 @@ from typing import List, Tuple
 _EXPECTED_BADGE_FIELDS = ('trainer', 'deck', 'date', 'tier')
 
 # Event-level fields copied onto each derived badge. Color/background are set
-# per badge earner (standing-level), so they are NOT event-level.
-_EVENT_FIELDS = ('store', 'date', 'tier', 'format')
+# per badge earner (standing-level), so they are NOT event-level. ``author`` is
+# whoever entered the event, carried through so a derived badge is attributable.
+_EVENT_FIELDS = ('store', 'date', 'tier', 'format', 'author')
 
 
 def _record_label(record: dict) -> str:

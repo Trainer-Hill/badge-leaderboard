@@ -156,8 +156,13 @@ def mode_for(season_year: int) -> str:
 
 
 def data_file_for(season_year: int) -> str:
-    """Return the backing data file for a season (falls back to the default)."""
-    return get_season(season_year).get('data_file') or util.data.FILENAME
+    """Return the backing data file path for a season (falls back to the default).
+
+    A season's configured ``data_file`` is a bare filename; resolve it against the
+    data directory so it lands alongside the default file (see util.data.DATA_DIR).
+    """
+    configured = get_season(season_year).get('data_file')
+    return util.data.data_path(configured) if configured else util.data.FILENAME
 
 
 def rules_path_for(season_year: int) -> Optional[str]:

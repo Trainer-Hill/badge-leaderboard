@@ -8,14 +8,13 @@ if IS_PROD:
     from gevent import monkey
     monkey.patch_all()
 
-import base64
 import dash
 import dash_auth
 import dash_bootstrap_components as dbc
-import hashlib
-import hmac
+import json
 
 import util.seasons
+from util.passwords import hash_password, verify_password
 
 # Grab logo
 THEME = None or dbc.themes.BOOTSTRAP
@@ -40,40 +39,47 @@ app = dash.Dash(
     title=TITLE,
 )
 
-# Parameters for PBKDF2
-HASH_NAME = "sha256"
-ITERATIONS = 100_000
-SALT_SIZE = 16  # bytes
-KEY_LENGTH = 32  # bytes
+# Password hashing (hash_password / verify_password) lives in util.passwords so
+# it can be run standalone to mint hashes; imported above.
 
 
-def hash_password(password: str) -> str:
-    salt = os.urandom(SALT_SIZE)
-    key = hashlib.pbkdf2_hmac(HASH_NAME, password.encode(), salt, ITERATIONS, dklen=KEY_LENGTH)
-    return base64.b64encode(salt + key).decode()  # Store both salt and key together
+def load_admins():
+    """Return {username: password_hash} for every configured admin.
 
+    Two sources, merged (we expect fewer than ~5 accounts, so this stays simple):
+      * ``TH_BL_USERS`` -- a JSON object of ``{"username": "<hash>"}``.
+      * ``TH_BL_USER`` + ``TH_BL_PASSWORD_HASH`` -- the legacy single-account
+        pair, kept for backward compatibility.
+    Generate hashes with ``hash_password()``.
+    """
+    admins = {}
+    raw = os.getenv('TH_BL_USERS')
+    if raw:
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            print('TH_BL_USERS is not valid JSON; ignoring it')
+            parsed = None
+        if isinstance(parsed, dict):
+            admins.update({str(u): str(h) for u, h in parsed.items()})
 
-def verify_password(password: str, stored_hash: str) -> bool:
-    decoded = base64.b64decode(stored_hash.encode())
-    salt = decoded[:SALT_SIZE]
-    original_key = decoded[SALT_SIZE:]
-    new_key = hashlib.pbkdf2_hmac(HASH_NAME, password.encode(), salt, ITERATIONS, dklen=KEY_LENGTH)
-    return hmac.compare_digest(new_key, original_key)
+    legacy_user = os.getenv('TH_BL_USER')
+    legacy_hash = os.getenv('TH_BL_PASSWORD_HASH')
+    if legacy_user and legacy_hash:
+        admins.setdefault(legacy_user, legacy_hash)
+
+    return admins
 
 
 def check_user(username, password):
-    expected_user = os.getenv("TH_BL_USER")
-    if expected_user is None or username != expected_user:
+    stored_hash = load_admins().get(username)
+    if not stored_hash:
         return False
-
-    expected_hash = os.getenv("TH_BL_PASSWORD_HASH")
-    if expected_hash:
-        return verify_password(password, expected_hash)
-    return False
+    return verify_password(password, stored_hash)
 
 
 def get_user_groups(user):
-    if user == os.getenv('TH_BL_USER'):
+    if user in load_admins():
         return ["admin"]
     return []
 
@@ -185,17 +191,52 @@ def check_health():
     return 'ok', 200
 
 
+def _exportable_files():
+    """Map basename -> path for every data file we're willing to serve.
+
+    Restricting to files declared in the season config (plus the default badge
+    file) keeps this endpoint from being an arbitrary-file read.
+    """
+    import util.data
+    files = {os.path.basename(util.data.FILENAME): util.data.FILENAME}
+    for year in util.seasons.SEASONS:
+        path = util.seasons.data_file_for(year)
+        files[os.path.basename(path)] = path
+    return files
+
+
 @server.get('/api/export-badges')
 def export_badges():
-    from util.data import FILENAME
-    from flask import Response
+    """Download a season's raw JSONL.
+
+    Selection (first match wins), all validated against an allowlist:
+      * ``?file=events_2027.jsonl`` -- by filename.
+      * ``?season=2027`` -- by season year (resolved to its data file).
+      * neither -- the default badge file (badges.jsonl).
+    """
+    import util.data
+    from flask import request, Response
+
+    files = _exportable_files()
+    requested = request.args.get('file')
+    season = request.args.get('season')
+
+    if requested:
+        path = files.get(os.path.basename(requested))
+        if path is None:
+            return 'Unknown file', 404
+    elif season:
+        path = util.seasons.data_file_for(util.seasons.resolve_season(season))
+    else:
+        path = util.data.FILENAME
+
     try:
-        with open(FILENAME, 'rb') as f:
+        with open(path, 'rb') as f:
             data = f.read()
     except OSError:
         return 'File not found', 404
 
-    basename = os.path.basename(FILENAME)
+    basename = os.path.basename(path)
     return Response(
         data,
         mimetype='application/x-ndjson',

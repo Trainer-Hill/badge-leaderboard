@@ -4,8 +4,21 @@ import json
 import os
 
 EXAMPLE = 'example.jsonl'
-FILENAME = os.getenv('TH_BL_FILE', EXAMPLE)
-IS_DEMO = FILENAME == EXAMPLE
+
+# Directory holding the JSONL data files. Empty by default, so paths stay
+# relative to the working dir exactly as before (local dev is unchanged). In
+# Docker we set TH_BL_DATA_DIR to a bind-mounted directory (e.g. /app/data) so
+# individual files don't need to pre-exist -- the app creates them on write.
+DATA_DIR = os.getenv('TH_BL_DATA_DIR', '')
+
+
+def data_path(name):
+    """Resolve a data filename against DATA_DIR (a no-op when DATA_DIR is empty)."""
+    return os.path.join(DATA_DIR, name)
+
+
+FILENAME = data_path(os.getenv('TH_BL_FILE', EXAMPLE))
+IS_DEMO = os.path.basename(FILENAME) == EXAMPLE
 _READ_CACHE = {}
 
 
@@ -77,7 +90,10 @@ read_data = functools.partial(read_data_from_file, filename=FILENAME)
 def append_data_to_file(filename=None, contents=None):
     if filename is None or contents is None:
         return
-    with open(filename, 'a') as file:    # perhaps we do a file per year
+    parent = os.path.dirname(filename)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(filename, 'a') as file:    # 'a' creates the file if it doesn't exist
         file.write(f'{json.dumps(contents)}\n')
     _READ_CACHE.pop(filename, None)
 

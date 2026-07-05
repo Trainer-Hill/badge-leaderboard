@@ -20,6 +20,7 @@ from dash import html, dcc, Output, Input, State, ALL, MATCH, Patch, clientside_
 import components.CustomRadioInputAIO
 import components.deck_label
 import components.layout_access_control
+import util.auth
 import util.data
 import util.discord
 import util.seasons
@@ -137,9 +138,15 @@ def _standing_row(index, placement, earned, deck_options, trainer_options):
                              options=BACKGROUNDS, placeholder='Background'),
             ], xs=6, md=3),
             dbc.Col([
-                dbc.Label('Discord ID (if new)', size='sm', class_name='mb-0'),
-                dbc.Input(id={'type': f'{PREFIX}-discord', 'index': index},
-                          placeholder='optional', size='sm'),
+                # Shown when we already have a Discord ID for the picked trainer.
+                html.Small(id={'type': f'{PREFIX}-discord-status', 'index': index},
+                           className='text-success d-block'),
+                # Hidden once a ping is already on file (no ID needed then).
+                html.Div([
+                    dbc.Label('Discord ID (if new)', size='sm', class_name='mb-0'),
+                    dbc.Input(id={'type': f'{PREFIX}-discord', 'index': index},
+                              placeholder='optional', size='sm'),
+                ], id={'type': f'{PREFIX}-discord-wrap', 'index': index}),
             ], xs=6, md=4),
         ], class_name='g-2'),
             id={'type': f'{PREFIX}-badge-fields', 'index': index},
@@ -256,6 +263,26 @@ def _sync_deck_options(store, existing):
 
 
 @dash_auth.protected_callback(
+    Output({'type': f'{PREFIX}-discord-status', 'index': MATCH}, 'children'),
+    Output({'type': f'{PREFIX}-discord-wrap', 'index': MATCH}, 'style'),
+    Input({'type': f'{PREFIX}-trainer-dd', 'index': MATCH}, 'value'),
+    groups=ROLES,
+)
+def _discord_ping_status(trainer):
+    """Tell the admin whether a Discord ping is already on file for this trainer.
+
+    If so, hide the "Discord ID (if new)" input -- we don't need one to ping them.
+    """
+    if trainer and trainer in util.discord._load_discord_ids():
+        return (
+            html.Span([html.I(className='fas fa-circle-check me-1'),
+                       'Ping ready for this trainer']),
+            {'display': 'none'},
+        )
+    return '', {}
+
+
+@dash_auth.protected_callback(
     Output(standings_container, 'children'),
     Output(next_index_store, 'data'),
     Input(add_player, 'n_clicks'),
@@ -345,6 +372,7 @@ def _save_event(n_clicks, store_name, date, players, tier, fmt,
         'players': _to_int(players, None),
         'tier': tier,
         'format': fmt,
+        'author': util.auth.current_username(),
         'standings': standings,
     }
 

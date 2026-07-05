@@ -10,6 +10,7 @@ from dash import html, dcc, Output, Input, State, clientside_callback, Clientsid
 import components.CustomRadioInputAIO
 import components.deck_label
 import components.layout_access_control
+import util.auth
 import util.data
 import util.discord
 
@@ -285,8 +286,13 @@ def _add_badge(n_clicks, trainer, pronouns, deck_id, store, date, decks, color, 
         'format': format_type
     }
     if edit_line is not None:
+        # Preserve the original creator on edit; fall back to the editor if the
+        # existing record predates author tracking.
+        existing = next((b for b in util.data.read_data() if b.get('_line') == edit_line), None)
+        badge['author'] = (existing or {}).get('author') or util.auth.current_username()
         util.data.update_data(line_index=edit_line, contents=badge)
     else:
+        badge['author'] = util.auth.current_username()
         if discord_id:
             util.discord.save_discord_id(trainer, discord_id.strip())
         util.data.append_data(contents=badge)

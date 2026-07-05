@@ -4,9 +4,16 @@ import os
 
 import requests
 
+import util.data
+
 logger = logging.getLogger(__name__)
 
-_DISCORD_IDS_FILE = os.path.join(os.path.dirname(__file__), '..', 'discord_ids.json')
+# Keep discord_ids.json alongside the badge data: in the mounted data dir when
+# TH_BL_DATA_DIR is set (Docker), else next to src/ as before (local dev).
+if util.data.DATA_DIR:
+    _DISCORD_IDS_FILE = util.data.data_path('discord_ids.json')
+else:
+    _DISCORD_IDS_FILE = os.path.join(os.path.dirname(__file__), '..', 'discord_ids.json')
 _WEBHOOK_URL = os.getenv('TH_BL_DISCORD_WEBHOOK')
 
 
