@@ -6,8 +6,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, callback, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
 
 import components.deck_label
-import util.badges
-import util.data
+import util.seasons
 import util.leaderboard
 
 dash.register_page(__name__, path='/leaderboard', name='Rankings')
@@ -129,13 +128,6 @@ def _leaderboard_table(title, data, summaries, row_type, deck_rows=False, deck_m
     ], bordered=True, size='sm', class_name='mb-2 leaderboard', responsive=True)
 
 
-def _filter_by_season(badges, season_year):
-    if season_year is None:
-        return badges
-    start, end = util.badges.season_bounds(season_year)
-    return [b for b in badges if b.get('date') and start <= b['date'] < end]
-
-
 def _rankings_section(badges):
     deck_map = _create_deck_map(badges)
     trainer_lb = util.leaderboard.weighted_leaderboard(badges, 'trainer')
@@ -155,40 +147,22 @@ def _rankings_section(badges):
     ])
 
 
-def layout():
-    badges = util.data.read_data()
-    seasons = sorted({
-        util.badges.season_start(b['date']).year + 1
-        for b in badges if b.get('date')
-    }, reverse=True)
-    season_options = [{'label': 'Overall', 'value': 'overall'}] + [
-        {'label': f'{s} Season', 'value': s} for s in seasons
-    ]
+def layout(season=None, **kwargs):
+    scope = util.seasons.resolve_scope(season)
+    badges = util.seasons.read_badges(scope)
+    content = (
+        _rankings_section(badges) if badges
+        else html.P('No badges found for the selected season.')
+    )
     return dbc.Container([
         html.H2('Rankings'),
-        html.P('Full leaderboard of all badge earners. Click a trainer or deck name to see detail.'),
-        dcc.Dropdown(
-            id='rankings-season-filter',
-            options=season_options,
-            value='overall',
-            clearable=False,
-            className='mb-3',
-        ),
-        html.Div(id='rankings-content'),
+        html.P([
+            'Full leaderboard of all badge earners for ',
+            html.Strong(util.seasons.season_label(scope)),
+            '. Click a trainer or deck name to see detail.',
+        ]),
+        content,
     ], fluid=True)
-
-
-@callback(
-    Output('rankings-content', 'children'),
-    Input('rankings-season-filter', 'value'),
-)
-def render_rankings(season):
-    badges = util.data.read_data()
-    season_year = None if season == 'overall' else int(season)
-    filtered = _filter_by_season(badges, season_year)
-    if not filtered:
-        return html.P('No badges found for the selected season.')
-    return _rankings_section(filtered)
 
 
 clientside_callback(

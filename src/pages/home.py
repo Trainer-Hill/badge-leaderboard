@@ -10,6 +10,7 @@ import components.badge
 import components.deck_label
 import util.data
 import util.leaderboard
+import util.seasons
 
 dash.register_page(
     __name__,
@@ -58,7 +59,7 @@ def _quarter_label(start: datetime.date) -> str:
 
 
 def _parse_badges():
-    badges = util.data.read_data()
+    badges = util.seasons.read_badges()
     return badges
 
 
@@ -521,7 +522,7 @@ def _next_month(date: datetime.date) -> datetime.date:
     return datetime.date(date.year, date.month + 1, 1)
 
 
-def layout():
+def layout(season=None, **kwargs):
     badges = _parse_badges()
 
     recent_components = [
@@ -540,9 +541,14 @@ def layout():
     ]
 
     season_tabs = [
-        dbc.Tab(label=f'{season} Season', tab_id=str(season), active_tab_style={'fontWeight': 'bold'})
-        for season in seasons
+        dbc.Tab(label=f'{s} Season', tab_id=str(s), active_tab_style={'fontWeight': 'bold'})
+        for s in seasons
     ]
+
+    requested_season = util.seasons.resolve_season(season)
+    active_season = str(requested_season) if requested_season in seasons else (
+        str(seasons[0]) if seasons else None
+    )
 
     demo_section = [
         html.Br(),
@@ -590,7 +596,7 @@ def layout():
         ]),
         html.P('Click a trainer or deck name to see the badges they have earned.'),
         html.H3('Season', id='season'),
-        dbc.Tabs(season_tabs, id='season-tabs', active_tab=str(seasons[0]) if seasons else None),
+        dbc.Tabs(season_tabs, id='season-tabs', active_tab=active_season),
         html.Div(id='season-content'),
     ], fluid=True)
 

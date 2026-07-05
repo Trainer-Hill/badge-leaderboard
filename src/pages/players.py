@@ -3,7 +3,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, callback, clientside_callback, ClientsideFunction, Output, Input, State
 
 import components.badge
-import util.data
+import util.seasons
 import util.grouping
 
 dash.register_page(__name__, path='/players')
@@ -54,9 +54,10 @@ def _player_totals(player_badges):
     )
 
 
-def layout():
+def layout(season=None, **kwargs):
     """Layout for the player profile page."""
-    badges = util.data.read_data()
+    scope = util.seasons.resolve_scope(season)
+    badges = util.seasons.read_badges(scope)
     grouped = util.grouping.group_badges(badges, lambda b: b.get('trainer'))
     sorted_players = util.grouping.sort_group_items(grouped)
     player_options = util.grouping.dropdown_options(
@@ -69,7 +70,7 @@ def layout():
             html.H2('Player Profiles', className='d-flex me-1'),
             dbc.Button(html.I(className='fas fa-download'), title='Download Player Profile', id='download-profile'),
         ], className='d-flex align-items-center'),
-        html.P('Select a player to view all badges they have earned.'),
+        html.P(f'Select a player to view their badges ({util.seasons.season_label(scope)}).'),
         dcc.Dropdown(
             options=player_options,
             value=player_options[0]['value'] if player_options else None,
@@ -78,7 +79,8 @@ def layout():
             className='mb-3'
         ),
         html.Div(id='player-badges'),
-        dbc.Input(value='player-badges', class_name='d-none', id='player-profile')
+        dbc.Input(value='player-badges', class_name='d-none', id='player-profile'),
+        dcc.Store(id='players-season', data=scope),
     ], fluid=True)
 
 
@@ -92,13 +94,14 @@ clientside_callback(
 
 @callback(
     Output('player-badges', 'children'),
-    Input('player-dropdown', 'value')
+    Input('player-dropdown', 'value'),
+    State('players-season', 'data'),
 )
-def render_player_badges(player):
-    """Render all badges for the selected player."""
+def render_player_badges(player, season):
+    """Render all badges for the selected player in the selected season scope."""
     if not player:
         return dash.no_update
-    badges = util.data.read_data()
+    badges = util.seasons.read_badges(season)
     player_badges = [b for b in badges if b.get('trainer') == player]
     badge_cols = [
         dbc.Col(

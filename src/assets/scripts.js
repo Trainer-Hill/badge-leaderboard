@@ -14,6 +14,56 @@ window.dash_clientside.clientside = {
     return path === '/badges';
   },
 
+  navigateSeason: function (value) {
+    if (value === undefined || value === null) {
+      return window.dash_clientside.no_update;
+    }
+    const url = new URL(window.location.href);
+    if (String(url.searchParams.get('season')) === String(value)) {
+      return window.dash_clientside.no_update;
+    }
+    url.searchParams.set('season', value);
+    window.location.assign(url.href);
+    return window.dash_clientside.no_update;
+  },
+
+  initSeasonSelect: function (pathname) {
+    const season = new URL(window.location.href).searchParams.get('season');
+    if (!season) {
+      return window.dash_clientside.no_update;
+    }
+    return season === 'overall' ? 'overall' : Number(season);
+  },
+
+  // Carry the active ?season= across internal navigation. A single delegated
+  // capture-phase click listener rewrites internal link hrefs to include the
+  // current season, so buttons/links don't reset the season to the default.
+  installSeasonLinkPersistence: function (pathname) {
+    if (window.__seasonLinkPersistence) {
+      return window.dash_clientside.no_update;
+    }
+    window.__seasonLinkPersistence = true;
+    document.addEventListener('click', function (e) {
+      const anchor = e.target.closest && e.target.closest('a[href]');
+      if (!anchor) { return; }
+      const href = anchor.getAttribute('href');
+      // Skip in-page anchors (e.g. "#season") so hash jumps don't reload.
+      if (!href || href.charAt(0) === '#') { return; }
+      // Skip links opening in a new tab/window.
+      const target = anchor.getAttribute('target');
+      if (target && target !== '_self') { return; }
+      const current = new URL(window.location.href).searchParams.get('season');
+      if (!current) { return; }
+      let url;
+      try { url = new URL(href, window.location.origin); } catch (err) { return; }
+      if (url.origin !== window.location.origin) { return; }  // external
+      if (url.searchParams.has('season')) { return; }         // already scoped
+      url.searchParams.set('season', current);
+      anchor.setAttribute('href', url.pathname + url.search + url.hash);
+    }, true);
+    return window.dash_clientside.no_update;
+  },
+
   customRadioEnableAdd: function (input, options) {
     if (input === undefined) { console.log('returning'); return true; }
     if (input.length === 0) { return true; }

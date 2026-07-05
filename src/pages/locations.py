@@ -4,8 +4,7 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import html, dcc, callback, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
 
-import util.badges
-import util.data
+import util.seasons
 import util.leaderboard
 
 dash.register_page(__name__, path='/locations', name='Locations')
@@ -124,53 +123,28 @@ def _totals(badges):
     )
 
 
-def _filter_by_season(badges, season_year):
-    if season_year is None:
-        return badges
-    start, end = util.badges.season_bounds(season_year)
-    return [b for b in badges if b.get('date') and start <= b['date'] < end]
-
-
-def layout():
-    badges = util.data.read_data()
-    seasons = sorted({
-        util.badges.season_start(b['date']).year + 1
-        for b in badges if b.get('date')
-    }, reverse=True)
-    season_options = [{'label': 'Overall', 'value': 'overall'}] + [
-        {'label': f'{s} Season', 'value': s} for s in seasons
-    ]
+def layout(season=None, **kwargs):
+    scope = util.seasons.resolve_scope(season)
+    badges = util.seasons.read_badges(scope)
+    if not badges:
+        content = html.P('No badges found for the selected season.')
+    else:
+        store_lb = util.leaderboard.weighted_leaderboard(badges, 'store')
+        summaries = _summarize_store_trainers(badges)
+        unique_trainers = _unique_trainers_per_store(badges)
+        content = html.Div([
+            _totals(badges),
+            _locations_table(store_lb, summaries, unique_trainers),
+        ])
     return dbc.Container([
         html.H2('Locations'),
-        html.P('Breakdown of badge activity by store. Click a store name to see which trainers earned badges there.'),
-        dcc.Dropdown(
-            id='locations-season-filter',
-            options=season_options,
-            value='overall',
-            clearable=False,
-            className='mb-3',
-        ),
-        html.Div(id='locations-content'),
+        html.P([
+            'Breakdown of badge activity by store for ',
+            html.Strong(util.seasons.season_label(scope)),
+            '. Click a store name to see which trainers earned badges there.',
+        ]),
+        content,
     ], fluid=True)
-
-
-@callback(
-    Output('locations-content', 'children'),
-    Input('locations-season-filter', 'value'),
-)
-def render_locations(season):
-    badges = util.data.read_data()
-    season_year = None if season == 'overall' else int(season)
-    filtered = _filter_by_season(badges, season_year)
-    if not filtered:
-        return html.P('No badges found for the selected season.')
-    store_lb = util.leaderboard.weighted_leaderboard(filtered, 'store')
-    summaries = _summarize_store_trainers(filtered)
-    unique_trainers = _unique_trainers_per_store(filtered)
-    return html.Div([
-        _totals(filtered),
-        _locations_table(store_lb, summaries, unique_trainers),
-    ])
 
 
 clientside_callback(

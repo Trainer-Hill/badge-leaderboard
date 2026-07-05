@@ -5,17 +5,9 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from typing import Dict, List, Sequence, Tuple
 
-# Badge tiers mapped to their point values. These points are used as a tie breaker
-# when players have the same number of badges.
-TIER_WEIGHTS = {
-    'locals': 1,
-    'online': 1,
-    'league challenge': 2,
-    'league cup': 3,
-    'regionals': 5,
-    'internationals': 5,
-    'worlds': 5,
-}
+# Single source of truth for tier point values (used as a tie breaker when
+# players have the same number of badges). Re-exported for existing importers.
+from util.badges import TIER_WEIGHTS
 
 
 def normalize_value(value):

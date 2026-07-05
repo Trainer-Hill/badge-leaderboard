@@ -58,7 +58,7 @@ def _create_pokemon_options():
 
 
 @components.layout_access_control.enforce_roles(ROLES)
-def layout():
+def layout(**kwargs):
     data = util.data.read_data()
 
     trainers = set()

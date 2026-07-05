@@ -5,14 +5,15 @@ from collections import defaultdict
 from dash import html, callback, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
 
 import components.badge
-import util.data
+import util.seasons
 
 dash.register_page(__name__, path='/badges')
 
 
-def layout():
-    """Display all earned badges."""
-    badges = util.data.read_data()
+def layout(season=None, **kwargs):
+    """Display all earned badges for the selected season scope."""
+    scope = util.seasons.resolve_scope(season)
+    badges = util.seasons.read_badges(scope)
     month_map = defaultdict(list)
     for i, b in enumerate(badges):
         date_obj = b.get('date')
@@ -43,7 +44,8 @@ def layout():
     return dbc.Container(
         [
             html.H2('All Badges'),
-            html.P('A complete list of all badges that have been earned.'),
+            html.P(f'A complete list of all badges earned ({util.seasons.season_label(scope)}).'),
+            dash.dcc.Store(id='badges-season', data=scope),
             *month_components
         ],
         fluid=True
@@ -68,13 +70,14 @@ def _next_month(date: datetime.date) -> datetime.date:
     Input({'type': 'month-collapse', 'index': MATCH}, 'is_open'),
     State({'type': 'month-content', 'index': MATCH}, 'children'),
     State({'type': 'month-collapse', 'index': MATCH}, 'id'),
+    State('badges-season', 'data'),
 )
-def load_month_badges(is_open, children, collapse_id):
+def load_month_badges(is_open, children, collapse_id, season):
     if not is_open or children:
         return dash.no_update
     month_start = datetime.date.fromisoformat(collapse_id['index'])
     month_end = _next_month(month_start)
-    badges = util.data.read_data()
+    badges = util.seasons.read_badges(season)
     filtered = [
         b for b in badges
         if b.get('date') and month_start <= b['date'] < month_end

@@ -15,6 +15,8 @@ import dash_bootstrap_components as dbc
 import hashlib
 import hmac
 
+import util.seasons
+
 # Grab logo
 THEME = None or dbc.themes.BOOTSTRAP
 TITLE = None or 'Badge Leaderboard'
@@ -122,8 +124,21 @@ def serve_layout():
                     #     id=image
                     # ),
                     href='/'
-                )
+                ),
+                dash.html.Div(
+                    dash.dcc.Dropdown(
+                        id='season-select',
+                        options=util.seasons.nav_season_options(),
+                        value=util.seasons.current_season(),
+                        clearable=False,
+                        searchable=False,
+                        style={'minWidth': '160px'},
+                    ),
+                    className='ms-auto',
+                ),
             ]), color='dark', dark=True),
+            dash.dcc.Store(id='season-nav-noop'),
+            dash.dcc.Store(id='season-link-noop'),
             dbc.Container([
                 dash.page_container,
             ], class_name='my-1', id='page_container')
@@ -138,6 +153,29 @@ server = app.server
 dash.clientside_callback(
     dash.ClientsideFunction(namespace='clientside', function_name='updatePageFluidity'),
     dash.Output('page_container', 'fluid'),
+    dash.Input('_pages_location', 'pathname'),
+)
+
+# Season selector: navigate to ?season=<year> on change (full reload so every
+# page's layout(season=...) honors it), and sync the dropdown from the URL.
+dash.clientside_callback(
+    dash.ClientsideFunction(namespace='clientside', function_name='navigateSeason'),
+    dash.Output('season-nav-noop', 'data'),
+    dash.Input('season-select', 'value'),
+    prevent_initial_call=True,
+)
+
+dash.clientside_callback(
+    dash.ClientsideFunction(namespace='clientside', function_name='initSeasonSelect'),
+    dash.Output('season-select', 'value'),
+    dash.Input('_pages_location', 'pathname'),
+)
+
+# Install (once) a delegated click handler that carries the active season
+# across internal navigation.
+dash.clientside_callback(
+    dash.ClientsideFunction(namespace='clientside', function_name='installSeasonLinkPersistence'),
+    dash.Output('season-link-noop', 'data'),
     dash.Input('_pages_location', 'pathname'),
 )
 
