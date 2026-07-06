@@ -4,6 +4,7 @@ from dash import html
 import th_helpers.utils.colors
 
 import components.deck_label
+import util.names
 
 PREFIX = 'badge'
 trainer_id = f'{PREFIX}-trainer'
@@ -18,7 +19,7 @@ def create_badge_component(data=None, index=None):
         data = {}
     background_color = data.get('color')
     style = {'backgroundColor': background_color, 'color': th_helpers.utils.colors.text_color_for_background(background_color)} if background_color else {}
-    header = html.H4(data.get('trainer', ''), id={'type': trainer_id, 'index': index})
+    header = html.H4(util.names.public_name(data.get('trainer', '')), id={'type': trainer_id, 'index': index})
     background = data.get('background')
     tier = data.get('tier')
     tier_comp = dbc.Badge(tier, class_name='me-1') if tier else None

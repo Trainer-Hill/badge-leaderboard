@@ -4,6 +4,7 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import html, dcc, callback, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
 
+import util.names
 import util.seasons
 import util.leaderboard
 
@@ -45,7 +46,7 @@ def _format_detail_list(details):
         ]
         items.append(html.Li(
             html.Div(
-                [html.Span('-', className='mx-1'), name, *tier_badges],
+                [html.Span('-', className='mx-1'), util.names.public_name(name), *tier_badges],
                 className='d-flex align-items-center mb-1'
             )
         ))

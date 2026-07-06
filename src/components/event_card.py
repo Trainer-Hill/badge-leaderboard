@@ -9,6 +9,7 @@ import dash_bootstrap_components as dbc
 from dash import html
 
 import components.deck_label
+import util.names
 
 
 def _format_date(value) -> str:
@@ -56,7 +57,7 @@ def create_event_card(event, index=None):
         rows.append(html.Tr([
             html.Td(standing.get('placement'), className='text-center align-middle w-0'),
             html.Td(
-                standing.get('trainer', ''),
+                util.names.public_name(standing.get('trainer', '')),
                 className='align-middle fw-semibold' if earned else 'align-middle',
             ),
             html.Td(

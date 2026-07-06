@@ -3,6 +3,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, callback, clientside_callback, ClientsideFunction, Output, Input, State
 
 import components.badge
+import util.names
 import util.seasons
 import util.grouping
 
@@ -62,7 +63,7 @@ def layout(season=None, **kwargs):
     sorted_players = util.grouping.sort_group_items(grouped)
     player_options = util.grouping.dropdown_options(
         sorted_players,
-        lambda name, player_badges: f"{name} ({len(player_badges)})"
+        lambda name, player_badges: f"{util.names.public_name(name)} ({len(player_badges)})"
     )
 
     return dbc.Container([
@@ -111,7 +112,7 @@ def render_player_badges(player, season):
         )
         for i, b in enumerate(player_badges)
     ]
-    header = html.H3(f"{player} - {len(player_badges)} badge{'s' if len(player_badges) != 1 else ''}")
+    header = html.H3(f"{util.names.public_name(player)} - {len(player_badges)} badge{'s' if len(player_badges) != 1 else ''}")
     return html.Div([
         header,
         _player_totals(player_badges),

@@ -10,6 +10,7 @@ from dash import dcc, html
 from plotly.express.colors import qualitative
 import plotly.graph_objects as go
 
+import util.names
 import util.seasons
 from util.leaderboard import badge_points, normalize_value
 
@@ -151,7 +152,7 @@ def _figure_from_timeline(timeline, top_k=_LEADERBOARD_LIMIT):
             x=[0],
             y=[top_k],  # arbitrary slot
             orientation='h',
-            name=name,
+            name=util.names.public_name(name),
             marker_color=color_for(name),
             text=[""],
             textposition="outside",
@@ -182,8 +183,8 @@ def _figure_from_timeline(timeline, top_k=_LEADERBOARD_LIMIT):
                 frame_traces.append(go.Bar(
                     x=[b],
                     y=[r],                   # numeric rank position -> smooth movement
-                    text=[f"{name} • {b} badge{'s' if b!=1 else ''} • {p} pt{'s' if p!=1 else ''}"],
-                    customdata=[[name, p, r]],
+                    text=[f"{util.names.public_name(name)} • {b} badge{'s' if b!=1 else ''} • {p} pt{'s' if p!=1 else ''}"],
+                    customdata=[[util.names.public_name(name), p, r]],
                     visible=True,
                     marker_color=color_for(name),
                     orientation='h',

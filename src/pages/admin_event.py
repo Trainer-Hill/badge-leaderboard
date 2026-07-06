@@ -21,6 +21,7 @@ import components.CustomRadioInputAIO
 import components.deck_label
 import components.layout_access_control
 import util.auth
+import util.badges
 import util.data
 import util.discord
 import util.seasons
@@ -47,8 +48,12 @@ deck_add = f'{PREFIX}-deck-add'
 standings_container = f'{PREFIX}-standings'
 next_index_store = f'{PREFIX}-next-index'
 add_player = f'{PREFIX}-add-player'
+badge_hint = f'{PREFIX}-badge-hint'
 save = f'{PREFIX}-save'
 status = f'{PREFIX}-status'
+# Editing an existing event
+event_select = f'{PREFIX}-event-select'
+edit_index = f'{PREFIX}-edit-index'
 
 BACKGROUNDS = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic',
                'Fighting', 'Dark', 'Metal', 'Dragon', 'Fairy', 'Colorless']
@@ -63,6 +68,20 @@ def _events_season():
         if util.seasons.mode_for(y) == 'events'
     ]
     return max(events_seasons) if events_seasons else None
+
+
+def _event_options(season):
+    """Dropdown options for editing an existing event (value = file line)."""
+    options = []
+    for e in util.seasons.read_events(season):
+        date = e.get('date')
+        date_str = date.isoformat() if hasattr(date, 'isoformat') else (date or '?')
+        players = e.get('players')
+        label = f"{e.get('store', '?')} — {date_str}"
+        if players:
+            label += f" — {players}p"
+        options.append({'label': label, 'value': e.get('_line')})
+    return options
 
 
 def _create_pokemon_options():
@@ -86,12 +105,12 @@ def _deck_options(store):
     ]
 
 
-def _trainer_select(index, options):
+def _trainer_select(index, options, value=None):
     """Select-or-add-new trainer control with pattern-matched ids."""
     return html.Div([
         dcc.Dropdown(
             id={'type': f'{PREFIX}-trainer-dd', 'index': index},
-            options=options, placeholder='Trainer',
+            options=options, value=value, placeholder='Trainer',
         ),
         dbc.InputGroup([
             dbc.Input(id={'type': f'{PREFIX}-trainer-in', 'index': index},
@@ -102,40 +121,58 @@ def _trainer_select(index, options):
     ])
 
 
-def _standing_row(index, placement, earned, deck_options, trainer_options):
-    """Build a single standings row with pattern-matching ids."""
+def _standing_row(index, placement, earned, deck_options, trainer_options, standing=None):
+    """Build a single standings row with pattern-matching ids.
+
+    When ``standing`` (an existing standing dict) is given, its trainer, deck,
+    pronouns, color, and background prefill the row -- used when editing an event.
+    """
+    standing = standing or {}
+    trainer_value = standing.get('trainer')
+    deck = standing.get('deck')
+    deck_value = deck.get('id') if isinstance(deck, dict) else deck
+    pronoun_value = standing.get('pronouns', 'their')
+    color_value = standing.get('color', '#ffffff')
+    background_value = standing.get('background')
+
     badge_style = {} if earned else {'display': 'none'}
     return dbc.Card(dbc.CardBody(dbc.Row([
         dbc.Col(dbc.Input(
             id={'type': f'{PREFIX}-placement', 'index': index},
             type='number', min=1, value=placement, size='sm',
         ), xs=4, md=1),
-        dbc.Col(_trainer_select(index, trainer_options), xs=8, md=4),
+        dbc.Col(_trainer_select(index, trainer_options, trainer_value), xs=8, md=4),
         dbc.Col(dcc.Dropdown(
             id={'type': f'{PREFIX}-deck', 'index': index},
-            options=deck_options, placeholder='Deck',
-        ), xs=8, md=4),
+            options=deck_options, value=deck_value, placeholder='Deck',
+        ), xs=6, md=3),
         dbc.Col(dbc.Switch(
             id={'type': f'{PREFIX}-earned', 'index': index},
             label='Badge', value=earned,
-        ), xs=12, md=3),
+        ), xs=4, md=3),
+        dbc.Col(dbc.Button(
+            html.I(className='fas fa-trash'),
+            id={'type': f'{PREFIX}-delete', 'index': index},
+            color='link', size='sm', class_name='text-danger p-0',
+            title='Remove player',
+        ), xs=2, md=1, class_name='text-end'),
         dbc.Col(dbc.Row([
             dbc.Col([
                 dbc.Label('Pronouns', size='sm', class_name='mb-0'),
                 dcc.Dropdown(
                     id={'type': f'{PREFIX}-pronouns', 'index': index},
-                    options=['their', 'her', 'his'], value='their', clearable=False,
+                    options=['their', 'her', 'his'], value=pronoun_value, clearable=False,
                 ),
             ], xs=6, md=3),
             dbc.Col([
                 dbc.Label('Color', size='sm', class_name='mb-0'),
                 dbc.Input(id={'type': f'{PREFIX}-color', 'index': index},
-                          type='color', value='#ffffff', size='sm'),
+                          type='color', value=color_value, size='sm'),
             ], xs=6, md=2),
             dbc.Col([
                 dbc.Label('Background', size='sm', class_name='mb-0'),
                 dcc.Dropdown(id={'type': f'{PREFIX}-background', 'index': index},
-                             options=BACKGROUNDS, placeholder='Background'),
+                             options=BACKGROUNDS, value=background_value, placeholder='Background'),
             ], xs=6, md=3),
             dbc.Col([
                 # Shown when we already have a Discord ID for the picked trainer.
@@ -186,7 +223,9 @@ def layout(**kwargs):
         ], md=2),
         dbc.Col([
             dbc.Label('Total Players', html_for=players_input),
-            dbc.Input(id=players_input, type='number', min=0, placeholder='e.g. 42'),
+            dbc.Input(id=players_input, type='number', min=0, placeholder='e.g. 42',
+                      debounce=True),
+            dbc.FormText('Sets up standings rows automatically.'),
         ], md=2),
         dbc.Col([
             dbc.Label('Tier', html_for=tier_input),
@@ -207,11 +246,19 @@ def layout(**kwargs):
         ]), md=5),
     ], class_name='g-2 mb-3')
 
+    edit_section = dbc.Row(dbc.Col([
+        dbc.Label('Edit existing event', html_for=event_select),
+        dcc.Dropdown(id=event_select, options=_event_options(season),
+                     placeholder='Select an event to edit…', clearable=True),
+    ], md=6), class_name='mb-3')
+
     return dbc.Container([
         html.H2(f'Enter Event — {season} Season'),
         html.P('Record an event and its standings. Toggle "Badge" for each trainer '
                'who earned one; 1st place is on by default. Pronouns/color/background '
                'and Discord pings apply to badge earners only.'),
+        edit_section,
+        html.Hr(),
         event_fields,
         html.Hr(),
         html.H5('Add a deck'),
@@ -219,6 +266,7 @@ def layout(**kwargs):
         deck_builder,
         html.Hr(),
         html.H5('Standings'),
+        html.Div(html.Span(id=badge_hint, className='text-muted small'), className='mb-2'),
         html.Div([_standing_row(0, 1, True, deck_options, trainers)], id=standings_container),
         dbc.Button([html.I(className='fas fa-plus me-1'), 'Add Player'],
                    id=add_player, color='secondary', outline=True, n_clicks=0,
@@ -229,6 +277,7 @@ def layout(**kwargs):
                    id=save, color='primary', n_clicks=0),
         dcc.Store(id=deck_store, data=decks),
         dcc.Store(id=next_index_store, data=1),
+        dcc.Store(id=edit_index, data=None),
         html.Div(style={'marginBottom': '256px'}),
     ], fluid=True)
 
@@ -262,24 +311,36 @@ def _sync_deck_options(store, existing):
     return [options for _ in existing]
 
 
+def _latest_pronoun(trainer):
+    """Return the trainer's most recently recorded pronoun (default 'their')."""
+    if not trainer:
+        return 'their'
+    # read_badges() is sorted newest-first, so the first match wins.
+    for b in util.seasons.read_badges():
+        if b.get('trainer') == trainer and b.get('pronouns'):
+            return b['pronouns']
+    return 'their'
+
+
 @dash_auth.protected_callback(
     Output({'type': f'{PREFIX}-discord-status', 'index': MATCH}, 'children'),
     Output({'type': f'{PREFIX}-discord-wrap', 'index': MATCH}, 'style'),
+    Output({'type': f'{PREFIX}-pronouns', 'index': MATCH}, 'value'),
     Input({'type': f'{PREFIX}-trainer-dd', 'index': MATCH}, 'value'),
     groups=ROLES,
 )
-def _discord_ping_status(trainer):
-    """Tell the admin whether a Discord ping is already on file for this trainer.
-
-    If so, hide the "Discord ID (if new)" input -- we don't need one to ping them.
-    """
+def _on_trainer_selected(trainer):
+    """When a trainer is picked, prefill their last-used pronoun and flag whether
+    a Discord ping is already on file (hiding the "Discord ID" input if so)."""
+    pronoun = _latest_pronoun(trainer)
     if trainer and trainer in util.discord._load_discord_ids():
         return (
             html.Span([html.I(className='fas fa-circle-check me-1'),
                        'Ping ready for this trainer']),
             {'display': 'none'},
+            pronoun,
         )
-    return '', {}
+    return '', {}, pronoun
 
 
 @dash_auth.protected_callback(
@@ -287,22 +348,172 @@ def _discord_ping_status(trainer):
     Output(next_index_store, 'data'),
     Input(add_player, 'n_clicks'),
     State(next_index_store, 'data'),
+    State(players_input, 'value'),
     State(deck_store, 'data'),
+    State({'type': f'{PREFIX}-placement', 'index': ALL}, 'id'),
     State({'type': f'{PREFIX}-trainer-dd', 'index': ALL}, 'options'),
     groups=ROLES,
     prevent_initial_call=True,
 )
-def _add_player(n_clicks, next_index, store, trainer_option_lists):
+def _add_player(n_clicks, next_index, players, store, placement_ids, trainer_option_lists):
     if not n_clicks:
         raise dash.exceptions.PreventUpdate
-    # next_index equals the current row count (no removals), so it doubles as the
-    # default placement (row count + 1). Patch appends without disturbing values
-    # already entered in existing rows.
+    # next_index is a monotonic unique row id; placement follows the current row
+    # count. Patch appends without disturbing values already entered.
     trainer_options = trainer_option_lists[0] if trainer_option_lists else []
+    placement = len(placement_ids) + 1
     patched = Patch()
-    patched.append(_standing_row(next_index, next_index + 1, False,
+    patched.append(_standing_row(next_index, placement,
+                                 util.badges.earns_badge(players, placement),
                                  _deck_options(store), trainer_options))
     return patched, next_index + 1
+
+
+@dash_auth.protected_callback(
+    Output(standings_container, 'children', allow_duplicate=True),
+    Output(next_index_store, 'data', allow_duplicate=True),
+    Input(players_input, 'value'),
+    State(next_index_store, 'data'),
+    State(deck_store, 'data'),
+    State({'type': f'{PREFIX}-placement', 'index': ALL}, 'id'),
+    State({'type': f'{PREFIX}-trainer-dd', 'index': ALL}, 'options'),
+    State(edit_index, 'data'),
+    groups=ROLES,
+    prevent_initial_call=True,
+)
+def _ensure_rows(players, next_index, store, placement_ids, trainer_option_lists, editing):
+    """Top up the standings to the suggested record count when players is set.
+
+    Only appends (never removes) so entered rows are preserved; extras can be
+    removed with the per-row delete button. Each new row's Badge toggle is
+    pre-checked from its placement + the field size. Disabled while editing an
+    existing event, whose standings are loaded verbatim.
+    """
+    if editing is not None:
+        raise dash.exceptions.PreventUpdate
+    target = util.badges.suggested_record_count(players)
+    current = len(placement_ids)
+    if not target or target <= current:
+        raise dash.exceptions.PreventUpdate
+    trainer_options = trainer_option_lists[0] if trainer_option_lists else []
+    deck_opts = _deck_options(store)
+    patched = Patch()
+    idx = next_index
+    for placement in range(current + 1, target + 1):
+        patched.append(_standing_row(idx, placement,
+                                     util.badges.earns_badge(players, placement),
+                                     deck_opts, trainer_options))
+        idx += 1
+    return patched, idx
+
+
+@dash_auth.protected_callback(
+    Output(standings_container, 'children', allow_duplicate=True),
+    Input({'type': f'{PREFIX}-delete', 'index': ALL}, 'n_clicks'),
+    State({'type': f'{PREFIX}-placement', 'index': ALL}, 'id'),
+    groups=ROLES,
+    prevent_initial_call=True,
+)
+def _delete_row(clicks, placement_ids):
+    """Remove the row whose delete button was clicked."""
+    triggered = dash.callback_context.triggered
+    if not triggered or not triggered[0].get('value'):
+        # Fired from rows being added (new buttons), not an actual click.
+        raise dash.exceptions.PreventUpdate
+    deleted = dash.callback_context.triggered_id['index']
+    positions = [i for i, id_ in enumerate(placement_ids) if id_['index'] == deleted]
+    if not positions:
+        raise dash.exceptions.PreventUpdate
+    patched = Patch()
+    del patched[positions[0]]
+    return patched
+
+
+@dash_auth.protected_callback(
+    Output(CRI.ids.dropdown(store_aio), 'value', allow_duplicate=True),
+    Output(date_input, 'date'),
+    Output(players_input, 'value'),
+    Output(tier_input, 'value'),
+    Output(CRI.ids.dropdown(format_aio), 'value', allow_duplicate=True),
+    Output(standings_container, 'children', allow_duplicate=True),
+    Output(next_index_store, 'data', allow_duplicate=True),
+    Output(edit_index, 'data'),
+    Input(event_select, 'value'),
+    State(deck_store, 'data'),
+    groups=ROLES,
+    prevent_initial_call=True,
+)
+def _load_event(line, deck_store_data):
+    """Load an existing event into the form for editing, or reset when cleared."""
+    trainer_options = sorted({
+        b.get('trainer') for b in util.seasons.read_badges() if b.get('trainer')
+    })
+    deck_opts = _deck_options(deck_store_data or {})
+
+    if line is None:
+        # Cleared -> reset to a blank new-event form.
+        return (None, datetime.date.today().isoformat(), None, 'Locals', 'Standard',
+                [_standing_row(0, 1, True, deck_opts, trainer_options)], 1, None)
+
+    event = next((e for e in util.seasons.read_events(_events_season())
+                  if e.get('_line') == line), None)
+    if event is None:
+        raise dash.exceptions.PreventUpdate
+
+    standings = event.get('standings') or []
+    rows = [
+        _standing_row(i, s.get('placement', i + 1), bool(s.get('earned_badge')),
+                      deck_opts, trainer_options, standing=s)
+        for i, s in enumerate(standings)
+    ] or [_standing_row(0, 1, False, deck_opts, trainer_options)]
+
+    date = event.get('date')
+    date_value = date.isoformat() if hasattr(date, 'isoformat') else date
+    return (
+        event.get('store'),
+        date_value,
+        event.get('players'),
+        event.get('tier', 'Locals'),
+        event.get('format', 'Standard'),
+        rows,
+        len(rows),
+        line,
+    )
+
+
+@dash_auth.protected_callback(
+    Output(save, 'children'),
+    Input(edit_index, 'data'),
+    groups=ROLES,
+)
+def _save_label(editing):
+    label = 'Update Event' if editing is not None else 'Save Event'
+    return [html.I(className='fas fa-save me-1'), label]
+
+
+@dash_auth.protected_callback(
+    Output(badge_hint, 'children'),
+    Input(players_input, 'value'),
+    groups=ROLES,
+)
+def _badge_hint(players):
+    """Show which placements earn a badge, and roughly how many to record."""
+    cutoff = util.badges.badge_cutoff(players)
+    who = '1st place earns a badge' if cutoff == 1 else f'Top {cutoff} earn a badge'
+    if cutoff >= util.badges.BADGE_CUTOFF_CAP:
+        who += ' (plus ties with 8th / the full cut — toggle manually)'
+    count = util.badges.suggested_record_count(players)
+    if not count:
+        return f'{who}.'
+    threshold = util.badges.suggested_record_threshold(players)
+    base = f'anyone at {threshold} or better (one loss)' if threshold else 'the notable finishers'
+    msg = f'{who}. Record ~{count} — {base}'
+    # A single-elim cut can pull in two-loss players below the one-loss line, so
+    # flag it only when the cut would go deeper than the Swiss-only suggestion.
+    cut = util.badges.top_cut_size(players)
+    if cut > count:
+        msg += f'; if a Top {cut} cut was run, record the whole cut (incl. two-loss players)'
+    return f'{msg}.'
 
 
 @dash_auth.protected_callback(
@@ -323,12 +534,13 @@ def _add_player(n_clicks, next_index, store, trainer_option_lists):
     State({'type': f'{PREFIX}-background', 'index': ALL}, 'value'),
     State({'type': f'{PREFIX}-discord', 'index': ALL}, 'value'),
     State(deck_store, 'data'),
+    State(edit_index, 'data'),
     groups=ROLES,
     prevent_initial_call=True,
 )
 def _save_event(n_clicks, store_name, date, players, tier, fmt,
                 placements, trainers, deck_ids, earned_flags,
-                pronouns, colors, backgrounds, discord_ids, deck_store_data):
+                pronouns, colors, backgrounds, discord_ids, deck_store_data, edit_line):
     if not n_clicks:
         raise dash.exceptions.PreventUpdate
 
@@ -381,6 +593,18 @@ def _save_event(n_clicks, store_name, date, players, tier, fmt,
         util.discord.save_discord_id(trainer, discord_id)
 
     filename = util.seasons.data_file_for(season)
+
+    if edit_line is not None:
+        # Editing: overwrite the event in place, keeping its original id/author,
+        # and don't re-post badges (avoids duplicate Discord pings).
+        existing = next((e for e in util.seasons.read_events(season)
+                         if e.get('_line') == edit_line), None)
+        if existing:
+            event['id'] = existing.get('id', event['id'])
+            event['author'] = existing.get('author') or event['author']
+        util.data.update_data_in_file(filename=filename, line_index=edit_line, contents=event)
+        return '/', dash.no_update
+
     util.data.append_data_to_file(filename=filename, contents=event)
 
     for standing in standings:

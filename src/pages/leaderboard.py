@@ -6,6 +6,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, callback, clientside_callback, ClientsideFunction, Output, Input, State, MATCH
 
 import components.deck_label
+import util.names
 import util.seasons
 import util.leaderboard
 
@@ -54,7 +55,7 @@ def _format_detail_list(details, use_deck_label=False, deck_map=None):
             deck = deck_map.get(name, {'name': name}) if deck_map else {'name': name}
             label = components.deck_label.create_label(deck)
         else:
-            label = name
+            label = util.names.public_name(name)
         items.append(html.Li(
             html.Div([html.Span('-', className='mx-1'), label, *tier_badges], className='d-flex align-items-center mb-1')
         ))
@@ -77,7 +78,7 @@ def _leaderboard_table(title, data, summaries, row_type, deck_rows=False, deck_m
             deck = deck_map.get(name, {'name': name}) if deck_map else {'name': name}
             label = components.deck_label.create_label(deck)
         else:
-            label = name
+            label = util.names.public_name(name)
 
         if prev_score and (count, points) == prev_score:
             num_same += 1

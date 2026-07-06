@@ -13,6 +13,7 @@ import components.layout_access_control
 import util.auth
 import util.data
 import util.discord
+import util.seasons
 
 ROLES = ['admin']
 
@@ -62,18 +63,20 @@ def _create_pokemon_options():
 def layout(**kwargs):
     data = util.data.read_data()
 
+    # Autocomplete values come from every season's data (badges.jsonl + event
+    # files), so a trainer/deck/store seen only in another file still suggests.
+    all_badges = util.seasons.read_badges()
     trainers = set()
     stores = set()
     formats = set()
     decks = {}
-    for badge in data:
+    for badge in all_badges:
         if badge.get('trainer'): trainers.add(badge.get('trainer'))
         if badge.get('store'): stores.add(badge.get('store'))
         if badge.get('format'): formats.add(badge.get('format'))
-        if badge.get('deck'):
-            if badge['deck']['id'] in decks:
-                continue
-            decks[badge['deck']['id']] = badge['deck']
+        deck = badge.get('deck')
+        if isinstance(deck, dict) and deck.get('id') and deck['id'] not in decks:
+            decks[deck['id']] = deck
 
     inputs = dbc.Form([
         dbc.Label('Trainer', html_for=trainer_input),

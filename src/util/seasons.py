@@ -39,7 +39,7 @@ SEASONS = {
     },
     2027: {
         'mode': 'events',
-        'rules': '2026.md',  # TODO: add rules/2027.md when the ruleset is finalized
+        'rules': '2027.md',
         'data_file': 'events_2027.jsonl',
     },
 }

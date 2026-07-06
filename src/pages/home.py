@@ -11,6 +11,7 @@ import components.deck_label
 import components.event_card
 import util.data
 import util.leaderboard
+import util.names
 import util.seasons
 
 dash.register_page(
@@ -190,7 +191,7 @@ def _format_detail_list(details, use_deck_label=False, deck_map=None):
             deck = deck_map.get(name, {'name': name}) if deck_map else {'name': name}
             label = components.deck_label.create_label(deck)
         else:
-            label = name
+            label = util.names.public_name(name)
         items.append(html.Li(html.Div([html.Span('-', className='mx-1'), label, *badges], className='d-flex align-items-center mb-1')))
     return html.Ul(items, className='mb-0 list-unstyled')
 
@@ -213,7 +214,7 @@ def _leaderboard_table(title, data_counter, summaries, row_type, deck_rows=False
             deck = deck_map.get(name, {'name': name}) if deck_map else {'name': name}
             label = components.deck_label.create_label(deck)
         else:
-            label = name
+            label = util.names.public_name(name)
 
         if prev_rank and (count, points) == prev_rank:
             num_same += 1
@@ -315,14 +316,14 @@ def _totals_badges(badges):
 
 def _season_awards(badges, deck_map=None):
     """Return award badges for season-wide stats."""
-    trainer_unique = _most_unique(badges, 'trainer', 'deck')
+    trainer_unique = [(util.names.public_name(n), c) for n, c in _most_unique(badges, 'trainer', 'deck')]
     deck_unique = _most_unique(badges, 'deck', 'trainer')
 
     trainer_lb = util.leaderboard.weighted_leaderboard(badges, 'trainer')
     trainer_points = []
     if trainer_lb:
         max_tp = max(item[2] for item in trainer_lb)
-        trainer_points = [(name, f'{pts} pts') for name, _, pts in trainer_lb if pts == max_tp]
+        trainer_points = [(util.names.public_name(name), f'{pts} pts') for name, _, pts in trainer_lb if pts == max_tp]
 
     deck_lb = util.leaderboard.weighted_leaderboard(badges, 'deck')
     deck_points = []
@@ -381,7 +382,7 @@ def _season_awards(badges, deck_map=None):
         _award_col(
             'Locked In',
             [
-                (f'{trainer} — {deck_name} — {badge_count} badges', None)
+                (f'{util.names.public_name(trainer)} — {deck_name} — {badge_count} badges', None)
                 for trainer, _, deck_name, badge_count in locked_in
             ],
             col_md=12,
@@ -390,7 +391,7 @@ def _season_awards(badges, deck_map=None):
         _award_col(
             'Tier Collector',
             [
-                (f'{trainer} — {tier_count} tiers', None)
+                (f'{util.names.public_name(trainer)} — {tier_count} tiers', None)
                 for trainer, tier_count in tiers_played
             ],
             col_md=12,
@@ -411,7 +412,7 @@ def _season_awards(badges, deck_map=None):
             return [
                 html.Div([
                     html.Span(f'{i+1}.', className='text-muted me-1 small'),
-                    html.Span(name),
+                    html.Span(util.names.public_name(name)),
                     html.Span(f'{score:.2f}', className='ms-auto small fw-bold text-primary'),
                 ], className='d-flex align-items-center px-1')
                 for i, (name, score) in enumerate(items)
@@ -464,7 +465,7 @@ def _season_awards(badges, deck_map=None):
             return [
                 html.Div([
                     html.Span(f'{i+1}.', className='text-muted me-1 small'),
-                    html.Span(name),
+                    html.Span(util.names.public_name(name)),
                     html.Span(f'{avg:.2f}', className=f'ms-auto small fw-bold {label_cls}'),
                 ], className='d-flex align-items-center px-1')
                 for i, (name, avg) in enumerate(items)
