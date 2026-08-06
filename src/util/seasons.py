@@ -177,10 +177,10 @@ def rules_path_for(season_year: int) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # Season-aware reads
 # ---------------------------------------------------------------------------
-def _read_normalized(filename: str, mode: str) -> List[dict]:
+def _read_normalized(filename: str, mode: str, earned_only: bool = True) -> List[dict]:
     """Read a data file and normalize its records to badge dicts."""
     records = util.data.read_data_from_file(filename)
-    badges, warnings = util.normalize.normalize_records(records, mode)
+    badges, warnings = util.normalize.normalize_records(records, mode, earned_only=earned_only)
     for warning in warnings:
         logger.warning('%s: %s', filename, warning)
     return badges
@@ -195,14 +195,8 @@ def _sort_badges(badges: List[dict]) -> List[dict]:
     )
 
 
-def read_badges(season: Optional[int] = None) -> List[dict]:
-    """Return normalized badges.
-
-    With no ``season`` (or ``OVERALL``), returns badges across every configured
-    season -- the all-time view. With a specific ``season``, returns just that
-    season's badges -- filtered to the season's date bounds when it shares the
-    default data file, or the whole file when the season has a dedicated one.
-    """
+def _read_season(season, earned_only: bool) -> List[dict]:
+    """Shared read for :func:`read_badges` and :func:`read_participants`."""
     if is_overall(season):
         # Read each distinct data file once, using that file's season mode.
         files: dict = {}
@@ -211,16 +205,39 @@ def read_badges(season: Optional[int] = None) -> List[dict]:
         files.setdefault(util.data.FILENAME, 'badges')
         badges: List[dict] = []
         for filename, mode in files.items():
-            badges.extend(_read_normalized(filename, mode))
+            badges.extend(_read_normalized(filename, mode, earned_only))
         return _sort_badges(badges)
 
     season_year = resolve_season(season)
-    badges = _read_normalized(data_file_for(season_year), mode_for(season_year))
+    badges = _read_normalized(data_file_for(season_year), mode_for(season_year), earned_only)
     if get_season(season_year).get('data_file') is None:
         # Shared default file: isolate this season by date.
         start, end = season_bounds(season_year)
         badges = [b for b in badges if b.get('date') and start <= b['date'] < end]
     return _sort_badges(badges)
+
+
+def read_badges(season: Optional[int] = None) -> List[dict]:
+    """Return normalized badges.
+
+    With no ``season`` (or ``OVERALL``), returns badges across every configured
+    season -- the all-time view. With a specific ``season``, returns just that
+    season's badges -- filtered to the season's date bounds when it shares the
+    default data file, or the whole file when the season has a dedicated one.
+    """
+    return _read_season(season, earned_only=True)
+
+
+def read_participants(season: Optional[int] = None) -> List[dict]:
+    """Return badge-shaped records for *everyone* who played, badge or not.
+
+    Same scoping as :func:`read_badges`, but events-mode standings contribute
+    every finisher instead of only badge earners (each record keeps its
+    ``placement`` and ``earned_badge``). Use this to populate admin pickers so a
+    trainer or deck first seen in a non-badge finish is suggested next time;
+    use :func:`read_badges` for anything that counts or displays badges.
+    """
+    return _read_season(season, earned_only=False)
 
 
 def read_events(season: Optional[int] = None) -> List[dict]:

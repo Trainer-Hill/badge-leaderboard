@@ -46,7 +46,9 @@ def _display_map(names: frozenset) -> dict:
 
 
 def _all_trainer_names() -> frozenset:
-    names = {b.get('trainer') for b in util.seasons.read_badges() if b.get('trainer')}
+    # Every participant, not just badge earners: event recap cards show the full
+    # standings, so a non-badge trainer has to take part in the collision index.
+    names = {b.get('trainer') for b in util.seasons.read_participants() if b.get('trainer')}
     return frozenset(names)
 
 

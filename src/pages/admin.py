@@ -65,7 +65,8 @@ def layout(**kwargs):
 
     # Autocomplete values come from every season's data (badges.jsonl + event
     # files), so a trainer/deck/store seen only in another file still suggests.
-    all_badges = util.seasons.read_badges()
+    # Participants, not just badge earners -- a non-badge event finish counts.
+    all_badges = util.seasons.read_participants()
     trainers = set()
     stores = set()
     formats = set()

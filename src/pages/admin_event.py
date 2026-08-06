@@ -200,12 +200,14 @@ def layout(**kwargs):
             dbc.Alert('No events-mode season is configured.', color='warning'),
         ], fluid=True)
 
-    badges = util.seasons.read_badges()
-    stores = sorted({b.get('store') for b in badges if b.get('store')})
-    formats = sorted({b.get('format') for b in badges if b.get('format')} | {'Standard'})
-    trainers = sorted({b.get('trainer') for b in badges if b.get('trainer')})
+    # Pickers come from every *participant*, not just badge earners, so a trainer
+    # or deck recorded on a non-badge finish still suggests on the next event.
+    participants = util.seasons.read_participants()
+    stores = sorted({b.get('store') for b in participants if b.get('store')})
+    formats = sorted({b.get('format') for b in participants if b.get('format')} | {'Standard'})
+    trainers = sorted({b.get('trainer') for b in participants if b.get('trainer')})
     decks = {}
-    for b in badges:
+    for b in participants:
         deck = b.get('deck')
         if isinstance(deck, dict) and deck.get('id') and deck['id'] not in decks:
             decks[deck['id']] = deck
@@ -446,7 +448,7 @@ def _delete_row(clicks, placement_ids):
 def _load_event(line, deck_store_data):
     """Load an existing event into the form for editing, or reset when cleared."""
     trainer_options = sorted({
-        b.get('trainer') for b in util.seasons.read_badges() if b.get('trainer')
+        b.get('trainer') for b in util.seasons.read_participants() if b.get('trainer')
     })
     deck_opts = _deck_options(deck_store_data or {})
 

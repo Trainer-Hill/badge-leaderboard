@@ -12,6 +12,10 @@ Seasons can store data in different shapes depending on their ``mode`` (see
 
 Pages should never read raw records directly; they go through this layer so both
 shapes degrade gracefully to the same internal badge dict.
+
+``earned_only=False`` switches events mode to the *participant* view: every
+standing is returned, badge or not. Admin pickers use it so a trainer or deck
+that showed up at an event without earning a badge is still suggested next time.
 """
 from __future__ import annotations
 
@@ -45,10 +49,13 @@ def _normalize_badge_record(record: dict) -> Tuple[dict, List[str]]:
     return record, warnings
 
 
-def _normalize_event_record(record: dict) -> Tuple[List[dict], List[str]]:
+def _normalize_event_record(record: dict, earned_only: bool = True) -> Tuple[List[dict], List[str]]:
     """Derive badge records from an event's standings.
 
-    A standing earns a badge only when ``earned_badge`` is explicitly true.
+    A standing earns a badge only when ``earned_badge`` is explicitly true. With
+    ``earned_only=False`` every standing is returned instead -- the participant
+    view, used to populate pickers with trainers/decks that appeared at an event
+    without earning a badge.
     """
     warnings: List[str] = []
     standings = record.get('standings') or []
@@ -57,34 +64,39 @@ def _normalize_event_record(record: dict) -> Tuple[List[dict], List[str]]:
         return [], warnings
 
     event_meta = {k: record.get(k) for k in _EVENT_FIELDS if record.get(k) is not None}
+    # Placement/earned_badge are standings bookkeeping, so they are dropped from a
+    # derived badge but kept in the participant view, which needs them.
+    dropped = ('earned_badge', 'placement', 'record') if earned_only else ('record',)
 
     badges: List[dict] = []
     for standing in standings:
-        if not standing.get('earned_badge'):
+        if earned_only and not standing.get('earned_badge'):
             continue
         badge = dict(event_meta)
         # Standing-level fields win over event-level ones (e.g. a per-standing date).
         badge.update({
             k: v for k, v in standing.items()
-            if k not in ('earned_badge', 'placement', 'record')
+            if k not in dropped
         })
         # Carry provenance so pages/admin can trace a badge back to its event.
         badge['event_id'] = record.get('id')
         badge['_line'] = record.get('_line')
         badges.append(badge)
 
-    if not badges:
+    if earned_only and not badges:
         warnings.append(
             f'Event {_record_label(record)} has standings but none earned a badge'
         )
     return badges, warnings
 
 
-def normalize_records(records, mode: str = 'badges') -> Tuple[List[dict], List[str]]:
+def normalize_records(records, mode: str = 'badges', earned_only: bool = True) -> Tuple[List[dict], List[str]]:
     """Convert raw season records into badge dicts.
 
     Returns ``(badges, warnings)``. Unknown modes fall back to ``badges`` so a
-    misconfigured season degrades rather than errors.
+    misconfigured season degrades rather than errors. ``earned_only=False`` only
+    affects events mode, where it yields every standing rather than just the
+    badge earners (badges-mode records are participants already).
     """
     badges: List[dict] = []
     warnings: List[str] = []
@@ -93,7 +105,7 @@ def normalize_records(records, mode: str = 'badges') -> Tuple[List[dict], List[s
         if not isinstance(record, dict):
             continue
         if mode == 'events':
-            derived, warns = _normalize_event_record(record)
+            derived, warns = _normalize_event_record(record, earned_only=earned_only)
             badges.extend(derived)
         else:
             badge, warns = _normalize_badge_record(record)
