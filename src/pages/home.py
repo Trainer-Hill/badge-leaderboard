@@ -19,47 +19,6 @@ dash.register_page(
     path='/'
 )
 
-def _season_start(date: datetime.date) -> datetime.date:
-    """Return the start of the season for a given date."""
-    if date.month >= 7:
-        return datetime.date(date.year, 7, 1)
-    return datetime.date(date.year - 1, 7, 1)
-
-
-def _quarter_start(date: datetime.date) -> datetime.date:
-    """Return the beginning of the quarter for a given date."""
-    m = date.month
-    y = date.year
-    if 7 <= m <= 9:
-        return datetime.date(y, 7, 1)
-    if 10 <= m <= 12:
-        return datetime.date(y, 10, 1)
-    if 1 <= m <= 3:
-        return datetime.date(y, 1, 1)
-    return datetime.date(y, 4, 1)
-
-
-def _next_quarter_start(date: datetime.date) -> datetime.date:
-    """Return the start date of the following quarter."""
-    qs = _quarter_start(date)
-    m = qs.month
-    y = qs.year
-    if m == 7:
-        return datetime.date(y, 10, 1)
-    if m == 10:
-        return datetime.date(y + 1, 1, 1)
-    if m == 1:
-        return datetime.date(y, 4, 1)
-    return datetime.date(y, 7, 1)
-
-
-def _quarter_label(start: datetime.date) -> str:
-    """Return a human readable label for a quarter."""
-    season = _season_start(start)
-    end = _next_quarter_start(start) - datetime.timedelta(days=1)
-    return f"{season.year + 1} {start.strftime('%B')} - {end.strftime('%B')}"
-
-
 def _parse_badges():
     badges = util.seasons.read_badges()
     return badges
@@ -529,6 +488,11 @@ def layout(season=None, **kwargs):
     badges = util.seasons.read_badges(scope)
 
     events = util.seasons.read_events(scope)
+    if scope != util.seasons.OVERALL:
+        # A data file (e.g. events_2027.jsonl) can be shared by more than one
+        # season -- scope the recap card to just this season's window.
+        start, end = util.seasons.season_bounds(scope)
+        events = [e for e in events if e.get('date') and start <= e['date'] < end]
     event_cols = [
         dbc.Col(
             components.event_card.create_event_card(e, i),
@@ -611,12 +575,13 @@ def _season_content(scope, season_badges):
     ]
     if scope != util.seasons.OVERALL:
         season_year = scope
+        anchor_month = util.seasons.quarter_anchor_month(season_year)
         quarter_starts = sorted({
-            _quarter_start(b['date'])
+            util.seasons.quarter_start(b['date'], anchor_month)
             for b in season_badges if b.get('date')
         }, reverse=True)
         quarter_tabs = [
-            dbc.Tab(label=_quarter_label(qs), tab_id=qs.isoformat(), active_tab_style={'fontWeight': 'bold'})
+            dbc.Tab(label=util.seasons.quarter_label(season_year, qs), tab_id=qs.isoformat(), active_tab_style={'fontWeight': 'bold'})
             for qs in quarter_starts
         ]
         children += [
@@ -638,13 +603,16 @@ def _season_content(scope, season_badges):
 def render_quarter(active_quarter):
     if not active_quarter:
         return dash.no_update
-    season_year = int(dash.ctx.triggered_id['index'] if dash.ctx.triggered_id else active_quarter.split('-')[0])
+    # The Output's own id carries the season key regardless of what triggered
+    # this callback -- unlike the active_tab date string, it's reliable even
+    # on the initial render (before any real click sets ctx.triggered_id).
+    season_year = dash.ctx.outputs_list['id']['index']
+    anchor_month = util.seasons.quarter_anchor_month(season_year)
     badges = _parse_badges()
-    season_start = _season_start(datetime.datetime.strptime(active_quarter, "%Y-%m-%d").date())
-    season_end = datetime.date(season_year+1, 7, 1)
+    season_start, season_end = util.seasons.season_bounds(season_year)
     season_badges = _filter_badges(badges, season_start, season_end)
     qs = datetime.date.fromisoformat(active_quarter)
-    qe = _next_quarter_start(qs)
+    qe = util.seasons.next_quarter_start(qs, anchor_month)
     quarter_badges = _filter_badges(season_badges, qs, qe)
     month_tabs = []
     month_start = qs
@@ -666,7 +634,7 @@ def render_quarter(active_quarter):
     deck_map = _create_deck_map(season_badges)
     return html.Div([
         _totals_badges(quarter_badges),
-        _leaderboard_section(quarter_badges, _quarter_label(qs), f'quarter-{qs.isoformat()}', deck_map=deck_map),
+        _leaderboard_section(quarter_badges, util.seasons.quarter_label(season_year, qs), f'quarter-{qs.isoformat()}', deck_map=deck_map),
         html.H3('Month', id='month'),
         dbc.Tabs(
             month_tabs,

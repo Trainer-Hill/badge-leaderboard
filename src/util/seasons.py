@@ -1,11 +1,16 @@
 """Central configuration and helpers for badge seasons.
 
 This module is the single source of truth for season metadata: which years
-exist, what mode each uses, where its rules live, and which data file backs it.
-Adding a new season is a single entry in :data:`SEASONS`.
+exist, what mode each uses, where its rules live, which data file backs it,
+and its date bounds. Adding a new season is a single entry in :data:`SEASONS`.
 
-Season years are named by the year the season *ends*, matching the UI: season
-``2026`` runs from July 1, 2025 through June 30, 2026.
+Season keys are normally named by the year the season *ends*, matching the UI:
+season ``2026`` runs from July 1, 2025 through June 30, 2026. Pokemon moved to
+a September-August season structure starting with the 2027 season, with a
+three-month "off" quarter (roughly June-August) for NAIC/Worlds built into the
+end of each season. A key may also be a short string (e.g. a stub season
+covering a gap between two boundary conventions) -- anything hashable works, as
+long as its config carries an explicit ``label``.
 """
 from __future__ import annotations
 
@@ -31,16 +36,38 @@ _RULES_DIR = os.path.join(_SRC_DIR, 'rules')
 #   rules     -- markdown filename under src/rules/ for that season's rules.
 #   data_file -- backing JSONL, relative to src/. None uses the default file
 #                (``util.data.FILENAME``, controlled by the TH_BL_FILE env var).
+#   start/end -- inclusive/exclusive date bounds. Badges are scoped to these
+#                (even for a dedicated data_file) unless the scope is OVERALL.
+#   label     -- display label for the season selector, rules heading, etc.
 SEASONS = {
     2026: {
         'mode': 'badges',
         'rules': '2026.md',
         'data_file': None,
+        'start': datetime.date(2025, 7, 1),
+        'end': datetime.date(2026, 7, 1),
+        'label': '2026 Season',
+    },
+    # Gap between the legacy July-June boundary (2026 and earlier) and the new
+    # September-August boundary (2027 and later): Pokemon's new quarter
+    # structure doesn't cover July-August 2026, so it's its own short season
+    # rather than silently folded into either neighbor. Shares the events-mode
+    # 2027 data file -- events recorded July-August 2026 already live there.
+    '2026-offseason': {
+        'mode': 'events',
+        'rules': None,
+        'data_file': 'events_2027.jsonl',
+        'start': datetime.date(2026, 7, 1),
+        'end': datetime.date(2026, 9, 1),
+        'label': 'Offseason 2026',
     },
     2027: {
         'mode': 'events',
         'rules': '2027.md',
         'data_file': 'events_2027.jsonl',
+        'start': datetime.date(2026, 9, 1),
+        'end': datetime.date(2027, 9, 1),
+        'label': '2027 Season',
     },
 }
 
@@ -61,44 +88,92 @@ def is_overall(value) -> bool:
 # Season math
 # ---------------------------------------------------------------------------
 def season_start(date: datetime.date) -> datetime.date:
-    """Return the first day (July 1) of the season containing ``date``."""
+    """Return the first day (July 1) of the legacy-boundary season containing
+    ``date``. Only used as a last-resort fallback -- see :func:`season_bounds`
+    for the per-season-configured bounds actually used by the app.
+    """
     if date.month >= 7:
         return datetime.date(date.year, 7, 1)
     return datetime.date(date.year - 1, 7, 1)
 
 
 def season_year_for_date(date: datetime.date) -> int:
-    """Return the season year (ending year) for a given date."""
+    """Return the legacy-boundary season year (ending year) for a given date."""
     return season_start(date).year + 1
 
 
-def season_bounds(season_year: int) -> Tuple[datetime.date, datetime.date]:
-    """Return the inclusive start and exclusive end date for a season."""
-    start = datetime.date(season_year - 1, 7, 1)
-    end = datetime.date(season_year, 7, 1)
-    return start, end
+def season_bounds(season_year) -> Tuple[datetime.date, datetime.date]:
+    """Return the inclusive start and exclusive end date for a season.
+
+    Configured seasons use their own ``start``/``end``. An unconfigured
+    (integer) season year falls back to the legacy July-June boundary.
+    """
+    cfg = SEASONS.get(season_year)
+    if cfg is not None:
+        return cfg['start'], cfg['end']
+    return datetime.date(season_year - 1, 7, 1), datetime.date(season_year, 7, 1)
+
+
+def quarter_start(date: datetime.date, anchor_month: int) -> datetime.date:
+    """Return the start of the 3-month quarter block containing ``date``,
+    where quarters begin at ``anchor_month`` and repeat every 3 months.
+    """
+    date_index = date.year * 12 + (date.month - 1)
+    anchor_index_this_cycle = date.year * 12 + (anchor_month - 1)
+    months_since_anchor = (date_index - anchor_index_this_cycle) % 12
+    quarter_index = date_index - months_since_anchor + (months_since_anchor // 3) * 3
+    return datetime.date(quarter_index // 12, quarter_index % 12 + 1, 1)
+
+
+def next_quarter_start(date: datetime.date, anchor_month: int) -> datetime.date:
+    """Return the start date of the quarter following ``date``'s quarter."""
+    qs = quarter_start(date, anchor_month)
+    next_index = qs.year * 12 + (qs.month - 1) + 3
+    return datetime.date(next_index // 12, next_index % 12 + 1, 1)
+
+
+def quarter_anchor_month(season_year) -> int:
+    """Return the month a season's quarters are anchored to (its start month)."""
+    start, _ = season_bounds(season_year)
+    return start.month
+
+
+def quarter_label(season_year, start: datetime.date) -> str:
+    """Return a human readable label for a quarter, e.g. '2026 July - September'."""
+    anchor_month = quarter_anchor_month(season_year)
+    end = next_quarter_start(start, anchor_month) - datetime.timedelta(days=1)
+    _, season_end = season_bounds(season_year)
+    season_last_day = season_end - datetime.timedelta(days=1)
+    if season_last_day < end:
+        # A short season (e.g. a gap season) can end mid-quarter -- don't
+        # claim months it doesn't actually cover.
+        end = season_last_day
+    prefix = season_year if isinstance(season_year, int) else season_label(season_year)
+    return f"{prefix} {start.strftime('%B')} - {end.strftime('%B')}"
 
 
 # ---------------------------------------------------------------------------
 # Config lookups
 # ---------------------------------------------------------------------------
-def available_seasons() -> List[int]:
-    """Return configured season years, most recent first."""
-    return sorted(SEASONS, reverse=True)
+def available_seasons() -> List:
+    """Return configured season keys, most recent first (by season start date)."""
+    return sorted(SEASONS, key=lambda y: SEASONS[y]['start'], reverse=True)
 
 
 def nav_season_options() -> List[dict]:
     """Dropdown options for the global season selector: Overall + each season."""
     return [{'label': 'Overall', 'value': OVERALL}] + [
-        {'label': f'{y} Season', 'value': y} for y in available_seasons()
+        {'label': get_season(y).get('label') or f'{y} Season', 'value': y}
+        for y in available_seasons()
     ]
 
 
 def season_label(value) -> str:
-    """Human label for a selector value ('Overall' or 'YYYY Season')."""
+    """Human label for a selector value ('Overall' or a season's configured label)."""
     if is_overall(value):
         return 'Overall'
-    return f'{resolve_season(value)} Season'
+    resolved = resolve_season(value)
+    return get_season(resolved).get('label') or f'{resolved} Season'
 
 
 def season_has_data(season_year: int) -> bool:
@@ -114,22 +189,27 @@ def current_season() -> int:
 
     Falls back to the latest configured season (then the calendar season).
     """
-    for year in available_seasons():  # newest first
+    seasons = available_seasons()  # newest first
+    for year in seasons:
         if season_has_data(year):
             return year
-    return max(SEASONS) if SEASONS else season_year_for_date(datetime.date.today())
+    return seasons[0] if seasons else season_year_for_date(datetime.date.today())
 
 
-def resolve_season(value) -> int:
-    """Coerce a query-string/param value to a valid configured season year.
+def resolve_season(value):
+    """Coerce a query-string/param value to a valid configured season key.
 
-    Falls back to the current season for missing or unknown values.
+    Falls back to the current season for missing or unknown values. Season
+    keys aren't always integers (e.g. a gap season may use a string key), so
+    this matches by value first, then by string form (query-string params
+    always arrive as strings).
     """
-    try:
-        year = int(value)
-    except (TypeError, ValueError):
-        return current_season()
-    return year if year in SEASONS else current_season()
+    if value in SEASONS:
+        return value
+    for key in SEASONS:
+        if str(key) == str(value):
+            return key
+    return current_season()
 
 
 def resolve_scope(value):
@@ -210,10 +290,11 @@ def _read_season(season, earned_only: bool) -> List[dict]:
 
     season_year = resolve_season(season)
     badges = _read_normalized(data_file_for(season_year), mode_for(season_year), earned_only)
-    if get_season(season_year).get('data_file') is None:
-        # Shared default file: isolate this season by date.
-        start, end = season_bounds(season_year)
-        badges = [b for b in badges if b.get('date') and start <= b['date'] < end]
+    # Isolate by date even for a dedicated data_file: a file can carry records
+    # (e.g. dev/test data) outside its season's configured bounds, and those
+    # shouldn't count toward that season.
+    start, end = season_bounds(season_year)
+    badges = [b for b in badges if b.get('date') and start <= b['date'] < end]
     return _sort_badges(badges)
 
 
@@ -222,8 +303,7 @@ def read_badges(season: Optional[int] = None) -> List[dict]:
 
     With no ``season`` (or ``OVERALL``), returns badges across every configured
     season -- the all-time view. With a specific ``season``, returns just that
-    season's badges -- filtered to the season's date bounds when it shares the
-    default data file, or the whole file when the season has a dedicated one.
+    season's badges, filtered to its configured date bounds.
     """
     return _read_season(season, earned_only=True)
 
@@ -243,15 +323,23 @@ def read_participants(season: Optional[int] = None) -> List[dict]:
 def read_events(season: Optional[int] = None) -> List[dict]:
     """Return raw event records (with standings) for events-mode seasons.
 
-    Powers the home recap card and the event admin flow. Badges-mode seasons
-    have no events, so they contribute nothing. With ``OVERALL``/``None`` this
-    unions events across every events-mode season.
+    Powers the event admin flow (which wants every event in the active
+    events-mode file, not just ones within a particular season's date bounds,
+    so a past event stays editable) and the home recap card (which the caller
+    should further filter to its season's bounds -- see
+    :func:`season_bounds` -- since multiple events-mode seasons can share one
+    data file). Badges-mode seasons have no events, so they contribute
+    nothing. With ``OVERALL``/``None`` this unions events across every
+    distinct events-mode data file (deduplicated, since seasons can share one).
     """
     if is_overall(season):
-        events: List[dict] = []
+        files: dict = {}
         for year in SEASONS:
             if mode_for(year) == 'events':
-                events.extend(util.data.read_data_from_file(data_file_for(year)))
+                files.setdefault(data_file_for(year), None)
+        events: List[dict] = []
+        for filename in files:
+            events.extend(util.data.read_data_from_file(filename))
         return _sort_badges(events)
 
     season_year = resolve_season(season)

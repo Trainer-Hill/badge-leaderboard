@@ -64,10 +64,10 @@ TIERS = ['Locals', 'Online', 'League Challenge', 'League Cup',
 def _events_season():
     """Return the (latest) events-mode season year, or None if unconfigured."""
     events_seasons = [
-        y for y in util.seasons.available_seasons()
+        y for y in util.seasons.available_seasons()  # already newest first
         if util.seasons.mode_for(y) == 'events'
     ]
-    return max(events_seasons) if events_seasons else None
+    return events_seasons[0] if events_seasons else None
 
 
 def _event_options(season):

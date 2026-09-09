@@ -32,7 +32,13 @@ window.dash_clientside.clientside = {
     if (!season) {
       return window.dash_clientside.no_update;
     }
-    return season === 'overall' ? 'overall' : Number(season);
+    if (season === 'overall') {
+      return 'overall';
+    }
+    // Season keys are usually numeric years, but a gap season may use a
+    // short string key instead -- only numify when it actually parses.
+    const num = Number(season);
+    return Number.isNaN(num) ? season : num;
   },
 
   // Carry the active ?season= across internal navigation. A single delegated
