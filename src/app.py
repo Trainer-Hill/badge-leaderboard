@@ -195,14 +195,11 @@ def _exportable_files():
     """Map basename -> path for every data file we're willing to serve.
 
     Restricting to files declared in the season config (plus the default badge
-    file) keeps this endpoint from being an arbitrary-file read.
+    file) keeps this endpoint from being an arbitrary-file read. Sourced from
+    util.seasons.exportable_files() so the admin downloads page and this
+    allowlist can't drift apart.
     """
-    import util.data
-    files = {os.path.basename(util.data.FILENAME): util.data.FILENAME}
-    for year in util.seasons.SEASONS:
-        path = util.seasons.data_file_for(year)
-        files[os.path.basename(path)] = path
-    return files
+    return {f['filename']: f['path'] for f in util.seasons.exportable_files()}
 
 
 @server.get('/api/export-badges')

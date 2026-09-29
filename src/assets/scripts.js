@@ -105,6 +105,20 @@ window.dash_clientside.clientside = {
     return false;
   },
 
+  disableRenameSave: function (fromTrainers, toTrainer) {
+    if (!fromTrainers || fromTrainers.length === 0 || !toTrainer) {
+      return true;
+    }
+    return false;
+  },
+
+  disableDeckMergeSave: function (fromDecks, targetDeck) {
+    if (!fromDecks || fromDecks.length === 0 || !targetDeck) {
+      return true;
+    }
+    return false;
+  },
+
   downloadDomAsImage: async function (clicks, id) {
     const today = new Date();
     const dateString = today.toISOString().substring(0, 10);

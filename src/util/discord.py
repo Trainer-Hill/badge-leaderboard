@@ -49,6 +49,23 @@ def save_discord_id(trainer, discord_id):
         json.dump(ids, f, indent=2)
 
 
+def rename_trainer(old_name, new_name):
+    """Move ``old_name``'s saved Discord ID onto ``new_name`` (a rename/merge).
+
+    If ``new_name`` already has an ID on file, ``old_name``'s is dropped
+    rather than overwriting it -- the target identity's ID wins.
+    """
+    if not _ensure_file():
+        logger.warning('Skipping Discord ID rename for %s: file not writable', old_name)
+        return
+    ids = _load_discord_ids()
+    old_id = ids.pop(old_name, None)
+    if old_id and new_name not in ids:
+        ids[new_name] = old_id
+    with open(_DISCORD_IDS_FILE, 'w') as f:
+        json.dump(ids, f, indent=2)
+
+
 def _mention(trainer):
     discord_id = _load_discord_ids().get(trainer)
     if discord_id:

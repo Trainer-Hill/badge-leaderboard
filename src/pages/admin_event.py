@@ -30,7 +30,7 @@ CRI = components.CustomRadioInputAIO.CustomRadioInputAIO
 
 ROLES = ['admin']
 
-dash.register_page(__name__, path='/admin/event')
+dash.register_page(__name__, path='/admin/event', name='Add Event')
 
 PREFIX = 'evt'
 # Event-level ids

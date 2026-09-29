@@ -254,6 +254,43 @@ def rules_path_for(season_year: int) -> Optional[str]:
     return path if os.path.exists(path) else None
 
 
+def data_files() -> dict:
+    """Return ``{filename: mode}`` for every distinct data file in play.
+
+    Single source of truth for anything that needs to touch every season's
+    file -- the overall (all-time) read below, and the admin mass-edit tool
+    (:mod:`util.mass_edit`), which has to find every raw record mentioning a
+    trainer or deck no matter which file/mode it lives in.
+    """
+    files: dict = {}
+    for year in SEASONS:
+        files.setdefault(data_file_for(year), mode_for(year))
+    files.setdefault(util.data.FILENAME, 'badges')
+    return files
+
+
+def exportable_files() -> List[dict]:
+    """Every distinct data file this app is willing to serve/export, labeled.
+
+    Single source of truth for the downloads admin page and the
+    ``/api/export-badges`` allowlist (see app.py) -- a newly configured
+    season's data file becomes downloadable automatically.
+    """
+    seen = set()
+    out = []
+    for year in available_seasons():
+        path = data_file_for(year)
+        name = os.path.basename(path)
+        if name in seen:
+            continue
+        seen.add(name)
+        out.append({'label': season_label(year), 'filename': name, 'path': path})
+    default_name = os.path.basename(util.data.FILENAME)
+    if default_name not in seen:
+        out.append({'label': 'Default badges file', 'filename': default_name, 'path': util.data.FILENAME})
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Season-aware reads
 # ---------------------------------------------------------------------------
@@ -279,12 +316,8 @@ def _read_season(season, earned_only: bool) -> List[dict]:
     """Shared read for :func:`read_badges` and :func:`read_participants`."""
     if is_overall(season):
         # Read each distinct data file once, using that file's season mode.
-        files: dict = {}
-        for year in SEASONS:
-            files.setdefault(data_file_for(year), mode_for(year))
-        files.setdefault(util.data.FILENAME, 'badges')
         badges: List[dict] = []
-        for filename, mode in files.items():
+        for filename, mode in data_files().items():
             badges.extend(_read_normalized(filename, mode, earned_only))
         return _sort_badges(badges)
 
@@ -333,13 +366,10 @@ def read_events(season: Optional[int] = None) -> List[dict]:
     distinct events-mode data file (deduplicated, since seasons can share one).
     """
     if is_overall(season):
-        files: dict = {}
-        for year in SEASONS:
-            if mode_for(year) == 'events':
-                files.setdefault(data_file_for(year), None)
         events: List[dict] = []
-        for filename in files:
-            events.extend(util.data.read_data_from_file(filename))
+        for filename, mode in data_files().items():
+            if mode == 'events':
+                events.extend(util.data.read_data_from_file(filename))
         return _sort_badges(events)
 
     season_year = resolve_season(season)
